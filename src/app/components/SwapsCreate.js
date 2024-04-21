@@ -21,11 +21,19 @@ const SwapsCreate = () => {
   const [tradeAssetBalance, setTradeAssetBalance] = useState(0)
   const [tradeForAsset, setTradeForAsset] = useState(null)
   const [tradeForAssetBalance, setTradeForAssetBalance] = useState(0)
-  const [partnerAddress, setPartnerAddress] = useState(null)
+  const [partnerAddress, setPartnerAddress] = useState('')
 
   const createSwap = (e) => {
     e.preventDefault()
     console.log('creating swap...')
+
+    setTradeAsset(null)
+    setTradeAssetBalance(0)
+    setTradeForAsset(null)
+    setTradeForAssetBalance(0)
+    setPartnerAddress('')
+    document.querySelector('#trade_asset').textContent = 'Select Asset'
+    document.querySelector('#trade_for_asset').textContent = 'Select Asset'
   }
 
   const tradeAssetSelected = (e) => {
@@ -43,7 +51,7 @@ const SwapsCreate = () => {
 
     setDDButtonTest(e, button)
 
-    // !!!!!!!!!!!!! TODO: FETCH BALANCE OF SELECTED ASSET HELD BUY TRADE PARTNER IN WALLET OF ADDRESS ENTERED !!!!!!!!!!!!!!!
+    getTradeForAssetBalance(e)
   }
 
   const getTradeAssetBalance = async (e) => {
@@ -65,10 +73,32 @@ const SwapsCreate = () => {
     }
   }
 
+  const getTradeForAssetBalance = async (e) => {
+    const tradeForAssetMint = new web3.PublicKey(e)
+
+    const userTradeForAssetATA = await token.getAssociatedTokenAddress(
+      tradeForAssetMint,
+      publicKey,
+    )
+
+    try {
+      console.log('trying to get for asset balance...')
+      const info = await token.getAccount(connection, userTradeForAssetATA)
+      const mint = await token.getMint(connection, info.mint)
+      setTradeForAssetBalance(Number(info.amount) / (10 ** mint.decimals))
+    }catch {
+      console.log('catching failure to get for asset balance...')
+      setTradeForAssetBalance(null)
+    }
+  }
+
   const setDDButtonTest = (e, button) => {
     switch (e) {
       case process.env.NEXT_PUBLIC_ATLAS_MINT:
         button.textContent = 'Atlas'
+        break
+      case process.env.NEXT_PUBLIC_POLIS_MINT:
+        button.textContent = 'Polis'
         break
       case process.env.NEXT_PUBLIC_AMMO_MINT:
         button.textContent = 'Ammo'
@@ -97,6 +127,7 @@ const SwapsCreate = () => {
         <InputGroup className='mt-1 mb-4'>
           <DropdownButton id='trade_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => tradeAssetSelected(e)}>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_ATLAS_MINT}>Atlas</Dropdown.Item>
+            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_POLIS_MINT}>Polis</Dropdown.Item>
             <Dropdown.Divider />
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_AMMO_MINT}>Ammo</Dropdown.Item>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_FOOD_MINT}>Food</Dropdown.Item>
@@ -110,13 +141,14 @@ const SwapsCreate = () => {
         <hr className='create_swap_hr' />
 
         {/* Address to swap with */}
-        <Form.Control className='mt-4 mb-3' type='text' placeholder='Address of swap partner' onChange={(e) => setPartnerAddress(e.target.value)}></Form.Control>
+        <Form.Control className='mt-4 mb-3' type='text' placeholder='Address of swap partner' value={partnerAddress} onChange={(e) => setPartnerAddress(e.target.value)}></Form.Control>
 
         {/* Asset to swap for */}
         <Form.Text className='float-end mx-1 my-0'>Balance: {tradeForAssetBalance}</Form.Text>
         <InputGroup className='mt-1 mb-3'>
           <DropdownButton id='trade_for_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => tradeForAssetSelected(e)} required>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_ATLAS_MINT}>Atlas</Dropdown.Item>
+            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_POLIS_MINT}>Polis</Dropdown.Item>
             <Dropdown.Divider />
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_AMMO_MINT}>Ammo</Dropdown.Item>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_FOOD_MINT}>Food</Dropdown.Item>
