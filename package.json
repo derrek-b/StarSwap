@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@project-serum/borsh": "^0.2.5",
     "@solana/spl-token": "^0.4.3",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
@@ -22,6 +23,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@solana-developers/helpers": "^2.3.0",
     "@total-typescript/ts-reset": "^0.5.1",
     "@types/node": "^20",
     "@types/react": "^18",
