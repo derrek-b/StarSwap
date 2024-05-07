@@ -5,6 +5,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import * as web3 from '@solana/web3.js'
 import * as token from '@solana/spl-token'
 import * as borsh from '@project-serum/borsh'
+import { sha256 } from 'crypto-hash'
 require('dotenv').config()
 
 // Components
@@ -13,6 +14,7 @@ import InputGroup from 'react-bootstrap/InputGroup'
 import Dropdown from 'react-bootstrap/Dropdown'
 import DropdownButton from 'react-bootstrap/DropdownButton'
 import Button from 'react-bootstrap/Button'
+import { isConditionalExpression } from 'typescript'
 
 
 const SwapsCreate = () => {
@@ -23,7 +25,6 @@ const SwapsCreate = () => {
   const keypair = web3.Keypair.fromSeed(array)
   const publicKey = keypair.publicKey
 
-  console.log('publickey', publicKey.toBase58())
   const { connection } = useConnection()
 
   const [tradeAsset, setTradeAsset] = useState(null)
@@ -48,8 +49,6 @@ const SwapsCreate = () => {
     e.preventDefault()
     console.log('creating swap...')
 
-    console.log(typeof tradeAssetAmount)
-
     let buffer = Buffer.alloc(1000)
     tradeInstructionLayout.encode({
       variant: 0,
@@ -58,19 +57,51 @@ const SwapsCreate = () => {
       asset1_amount: tradeAssetAmount,
       trader2: partnerAddress,
       asset2: tradeForAsset,
-      asset2_amount: parseInt(tradeForAssetAmount)
+      asset2_amount: tradeForAssetAmount
     }, buffer)
+    buffer = buffer.subarray(0, tradeInstructionLayout.getSpan(buffer))
     console.log('buffer created...')
 
     const tx = new web3.Transaction()
+
+    //console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
+    const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))//.substring(0, 32)
+    console.log("hash", hash)
+
+    const [pda] = await web3.PublicKey.findProgramAddressSync(
+      [Buffer.from(hash.substring(0,32))],
+      new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
+    )
+    console.log(pda.toBase58())
+
     const inst = new web3.TransactionInstruction({
-      keys: [],
-      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_DEVNET_PROGRAM_ID,),
-      data: []
+      keys: [
+        {
+          pubkey: publicKey,
+          isSigner: true,
+          isWritable: false,
+        },
+        {
+          pubkey: pda,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: web3.SystemProgram.programId,
+          isSigner: false,
+          isWritable: false,
+        },
+      ],
+      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
+      data: buffer
     })
+    tx.add(inst)
+
     console.log('transaction created...')
 
-    // const txSig = await sendTransaction(tx, connection)
+    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [keypair]) // localhost
+    //const txSig = await sendTransaction(tx, connection) // devnet and prod
+    console.log(txSig)
 
     // setTradeAsset(null)
     // setTradeAssetBalance(0)
@@ -190,7 +221,7 @@ const SwapsCreate = () => {
 
         {/* Asset to swap for */}
         <Form.Text className='float-end mx-1 my-0'>Balance: {tradeForAssetBalance}</Form.Text>
-        <InputGroup className='mt-1 mb-3'>
+        <InputGroup className='mt-1 mb-4'>
           <DropdownButton id='trade_for_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => tradeForAssetSelected(e)} required>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_ATLAS_MINT}>Atlas</Dropdown.Item>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_POLIS_MINT}>Polis</Dropdown.Item>
@@ -203,7 +234,7 @@ const SwapsCreate = () => {
           <Form.Control type='number' placeholder='Amount to receive' onChange={(e) => setTradeForAssetAmount(e.target.value)}></Form.Control>
         </InputGroup>
 
-        <Button type='submit' className='maroon_bg mb-3'>Create Swap</Button>
+        <Button type='submit' className='maroon_bg mb-4 submit_button'>Create Swap</Button>
       </Form>
     </div>
   )

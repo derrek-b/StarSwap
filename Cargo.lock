@@ -844,6 +844,7 @@ name = "mos_eisley"
 version = "0.1.0"
 dependencies = [
  "borsh 1.4.0",
+ "sha2 0.10.8",
  "solana-program",
 ]
 

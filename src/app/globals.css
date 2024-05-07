@@ -19,3 +19,8 @@
   background-color: #fff;
   border-top: 3px dashed #8c8b8b;
 }
+
+.submit_button {
+  display: block;
+  margin: auto;
+}
