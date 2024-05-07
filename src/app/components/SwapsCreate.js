@@ -14,7 +14,9 @@ import InputGroup from 'react-bootstrap/InputGroup'
 import Dropdown from 'react-bootstrap/Dropdown'
 import DropdownButton from 'react-bootstrap/DropdownButton'
 import Button from 'react-bootstrap/Button'
-import { isConditionalExpression } from 'typescript'
+
+// Classes
+import { Trade } from '../classes/Trade'
 
 
 const SwapsCreate = () => {
@@ -35,44 +37,24 @@ const SwapsCreate = () => {
   const [tradeForAssetBalance, setTradeForAssetBalance] = useState(0)
   const [partnerAddress, setPartnerAddress] = useState('')
 
-  const tradeInstructionLayout = borsh.struct([
-    borsh.u8('variant'),
-    borsh.str('trader1'),
-    borsh.str('asset1'),
-    borsh.u32('asset1_amount'),
-    borsh.str('trader2'),
-    borsh.str('asset2'),
-    borsh.u32('asset2_amount')
-  ])
-
   const createSwap = async (e) => {
     e.preventDefault()
-    console.log('creating swap...')
-
-    let buffer = Buffer.alloc(1000)
-    tradeInstructionLayout.encode({
-      variant: 0,
-      trader1: publicKey.toBase58(),
-      asset1: tradeAsset,
-      asset1_amount: tradeAssetAmount,
-      trader2: partnerAddress,
-      asset2: tradeForAsset,
-      asset2_amount: tradeForAssetAmount
-    }, buffer)
-    buffer = buffer.subarray(0, tradeInstructionLayout.getSpan(buffer))
-    console.log('buffer created...')
+    //console.log('creating swap...')
+    const newTrade = new Trade(publicKey.toBase58(), tradeAsset, tradeAssetAmount, partnerAddress, tradeForAsset, tradeForAssetAmount)
+    const buffer = newTrade.serialize()
+    //console.log('buffer created...')
 
     const tx = new web3.Transaction()
 
     //console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
     const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))//.substring(0, 32)
-    console.log("hash", hash)
+    //console.log("hash", hash)
 
     const [pda] = await web3.PublicKey.findProgramAddressSync(
       [Buffer.from(hash.substring(0,32))],
       new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
     )
-    console.log(pda.toBase58())
+    //console.log(pda.toBase58())
 
     const inst = new web3.TransactionInstruction({
       keys: [
@@ -95,13 +77,20 @@ const SwapsCreate = () => {
       programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
       data: buffer
     })
+
     tx.add(inst)
 
-    console.log('transaction created...')
+    //console.log('transaction created...')
 
-    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [keypair]) // localhost
-    //const txSig = await sendTransaction(tx, connection) // devnet and prod
-    console.log(txSig)
+    try {
+      const txSig = await web3.sendAndConfirmTransaction(connection, tx, [keypair]) // localhost
+      //const txSig = await sendTransaction(tx, connection) // devnet and prod
+      console.log(txSig)
+      alert('Transaction Submitted')
+    } catch (e) {
+      console.log(JSON.stringify(e))
+      alert(JSON.stringify(e))
+    }
 
     // setTradeAsset(null)
     // setTradeAssetBalance(0)
@@ -192,11 +181,7 @@ const SwapsCreate = () => {
   }
 
   return (
-    // [X] Asset to swap
-    // [X] Asset to swap for
-    // [X] Address to swap with
-    // [ ] Time until swap cancel
-    <div>
+    <div style={{ width: '600px', border: '1px solid black' }}>
       <Form onSubmit={(e) => createSwap(e)} className='mx-2'>
         {/* Asset to be swapped */}
         <Form.Text className='float-end mx-1'>Balance: {tradeAssetBalance}</Form.Text>

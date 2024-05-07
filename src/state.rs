@@ -2,7 +2,7 @@ use borsh::{BorshSerialize, BorshDeserialize};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TradeAccountState{
-    pub is_active: bool,
+    pub active: bool,
     pub trader1: String,
     pub asset1: String,
     pub asset1_amount: u32,

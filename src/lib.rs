@@ -111,7 +111,7 @@ fn create_trade(
     let mut pda_data = try_from_slice_unchecked::<TradeAccountState>(&pda_account.data.borrow()).unwrap();
     msg!("data borrowed...");
 
-    pda_data.is_active = true;
+    pda_data.active = true;
     pda_data.trader1 = trader1;
     pda_data.asset1 = asset1;
     pda_data.asset1_amount = asset1_amount;
