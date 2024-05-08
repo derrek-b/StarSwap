@@ -16,7 +16,7 @@ const Swaps = () => {
         <Nav.Link>Open Swaps</Nav.Link>
       </Nav>
 
-      <SwapsCreate style={{ width: '600px', border: '1px solid black' }}/>
+      <SwapsCreate />
 
       <MySwaps />
     </div>
