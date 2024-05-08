@@ -46,7 +46,7 @@ const SwapsCreate = () => {
 
     const tx = new web3.Transaction()
 
-    //console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
+    console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
     const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))//.substring(0, 32)
     //console.log("hash", hash)
 
