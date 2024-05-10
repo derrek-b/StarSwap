@@ -3,23 +3,23 @@ use solana_program::{ program_error::ProgramError, pubkey::Pubkey, msg };
 
 pub enum TradeInstructions {
     CreateTrade {
-        trader1: String,
-        asset1: String,
-        asset1_amount: u32,
-        trader2: String,
-        asset2: String,
-        asset2_amount: u32,
-    }
+        user: String,
+        user_asset: String,
+        user_asset_amount: u32,
+        partner: String,
+        partner_asset: String,
+        partner_asset_amount: u32,
+    },
 }
 
 #[derive(BorshDeserialize, Debug)]
 struct TradePayload {
-    trader1: String,
-    asset1: String,
-    asset1_amount: u32,
-    trader2: String,
-    asset2: String,
-    asset2_amount: u32,
+    user: String,
+    user_asset: String,
+    user_asset_amount: u32,
+    partner: String,
+    partner_asset: String,
+    partner_asset_amount: u32,
 }
 
 impl TradeInstructions {
@@ -30,12 +30,12 @@ impl TradeInstructions {
 
         Ok(match variant {
             0 => Self::CreateTrade {
-                trader1: payload.trader1,
-                asset1: payload.asset1,
-                asset1_amount: payload.asset1_amount,
-                trader2: payload.trader2,
-                asset2: payload.asset2,
-                asset2_amount: payload.asset2_amount },
+                user: payload.user,
+                user_asset: payload.user_asset,
+                user_asset_amount: payload.user_asset_amount,
+                partner: payload.partner,
+                partner_asset: payload.partner_asset,
+                partner_asset_amount: payload.partner_asset_amount },
             _ => return Err(ProgramError::InvalidInstructionData)
         })
 

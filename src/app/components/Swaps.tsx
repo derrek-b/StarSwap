@@ -7,6 +7,7 @@ import * as web3 from '@solana/web3.js'
 import Nav from 'react-bootstrap/Nav'
 import SwapsCreate from './SwapsCreate'
 import MySwaps from './MySwaps'
+import ProposedSwaps from './ProposedSwaps'
 
 const Swaps = () => {
   return (
@@ -19,6 +20,8 @@ const Swaps = () => {
       <SwapsCreate />
 
       <MySwaps />
+
+      <ProposedSwaps />
     </div>
   )
 }

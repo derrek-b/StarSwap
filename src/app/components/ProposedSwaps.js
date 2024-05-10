@@ -5,13 +5,14 @@ import { useConnection } from '@solana/wallet-adapter-react'
 
 // Components
 import Table from 'react-bootstrap/Table'
+import Button from 'react-bootstrap/Button'
 
 // Classes & Helpers
 import { Trade } from '../classes/Trade'
 import { TradeCoordinator } from '../classes/TradeCoordinator'
 import { GetAssetName } from '../helpers/Helpers'
 
-const MySwaps = () => {
+const ProposedSwaps = () => {
   //const { publicKey, sendTransaction } = useWallet()  //Devnet and prod
 
   // localhost only
@@ -20,31 +21,31 @@ const MySwaps = () => {
   const publicKey = keypair.publicKey
 
   const connection = useConnection()
-  const [userTrades, setUserTrades] = useState([])
+  const [proposedTrades, setProposedTrades] = useState([])
 
-  const getUserTrades = () => {
+  const getProposedTrades = () => {
     console.dir(publicKey)
     //connection.connection.getProgramAccounts(new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID))
-    TradeCoordinator.getUserTrades(connection, publicKey.toBase58())
+    TradeCoordinator.getProposedTrades(connection, publicKey.toBase58())
       .then(async (accounts) => {
         const trades = accounts.map(({ account }) => {
           return Trade.deserialize(account.data)
         })
 
-        setUserTrades(trades)
+        setProposedTrades(trades)
         console.log('trades:', trades)
       })
   }
 
   useEffect(() => {
     if (connection && publicKey) {
-      getUserTrades()
+      getProposedTrades()
     }
   }, [])
 
   return (
     <div>
-      <h2>Open Trades Created</h2>
+      <h2>Proposed Trades</h2>
        <Table bordered striped>
         <thead>
           <tr>
@@ -53,16 +54,18 @@ const MySwaps = () => {
             <th>Trade Partner</th>
             <th>Trade For</th>
             <th>Amount</th>
+            <th>Accept</th>
           </tr>
         </thead>
         <tbody>
-          {userTrades && userTrades.map((trade, index) => (
+          {proposedTrades && proposedTrades.map((trade, index) => (
             <tr key={index}>
               <td>{GetAssetName(trade.user_asset)}</td>
               <td>{trade.user_asset_amount}</td>
               <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
               <td>{GetAssetName(trade.partner_asset)}</td>
               <td>{trade.partner_asset_amount}</td>
+              <td><Button>&#10004;</Button></td>
             </tr>
           ))}
         </tbody>
@@ -71,4 +74,4 @@ const MySwaps = () => {
   )
 }
 
-export default MySwaps
+export default ProposedSwaps

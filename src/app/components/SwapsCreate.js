@@ -39,22 +39,24 @@ const SwapsCreate = () => {
 
   const createSwap = async (e) => {
     e.preventDefault()
-    //console.log('creating swap...')
     const newTrade = new Trade(publicKey.toBase58(), tradeAsset, tradeAssetAmount, partnerAddress, tradeForAsset, tradeForAssetAmount)
     const buffer = newTrade.serialize()
-    //console.log('buffer created...')
 
     const tx = new web3.Transaction()
 
-    console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
-    const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))//.substring(0, 32)
-    //console.log("hash", hash)
+    // Create PDAs
+    // console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
+    // const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))
 
-    const [pda] = await web3.PublicKey.findProgramAddressSync(
-      [Buffer.from(hash.substring(0,32))],
+    // const [pda] = await web3.PublicKey.findProgramAddressSync(
+    //   [Buffer.from(hash.substring(0,32))],
+    //   new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
+    // )
+
+    const [indexPda] = await web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('tradeindex')],
       new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
     )
-    //console.log(pda.toBase58())
 
     const inst = new web3.TransactionInstruction({
       keys: [
@@ -65,6 +67,11 @@ const SwapsCreate = () => {
         },
         {
           pubkey: pda,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: indexPda,
           isSigner: false,
           isWritable: true,
         },
