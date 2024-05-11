@@ -37,6 +37,10 @@ const ProposedSwaps = () => {
       })
   }
 
+  const acceptTrade = (index) => {
+    console.log(`Button clicked for trade #${proposedTrades[index].index}`)
+  }
+
   useEffect(() => {
     if (connection && publicKey) {
       getProposedTrades()
@@ -65,7 +69,7 @@ const ProposedSwaps = () => {
               <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
               <td>{GetAssetName(trade.partner_asset)}</td>
               <td>{trade.partner_asset_amount}</td>
-              <td><Button>&#10004;</Button></td>
+              <td><Button onClick={() => acceptTrade(index)}>&#10003;</Button></td>
             </tr>
           ))}
         </tbody>
