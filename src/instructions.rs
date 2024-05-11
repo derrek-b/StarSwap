@@ -38,7 +38,5 @@ impl TradeInstructions {
                 partner_asset_amount: payload.partner_asset_amount },
             _ => return Err(ProgramError::InvalidInstructionData)
         })
-
-        //Ok((variant))
     }
 }
