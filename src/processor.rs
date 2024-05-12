@@ -1,15 +1,17 @@
 use solana_program::{
-    pubkey::Pubkey,
-    account_info::{AccountInfo, next_account_info},
-    msg,
-    entrypoint::ProgramResult,
-    system_instruction,
-    program_error::ProgramError,
-    sysvar::{rent::Rent, Sysvar},
-    program::invoke_signed,
+    account_info::{next_account_info, AccountInfo},
     borsh1::try_from_slice_unchecked,
-    program_pack::IsInitialized
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    program_pack::{IsInitialized, Pack},
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
 };
+use spl_token::state::{Account, Mint};
+use spl_token::state::is_initialized_account;
 use std::convert::TryInto;
 use borsh::BorshSerialize;
 use sha2::{Sha256, Digest};
@@ -59,24 +61,51 @@ fn create_trade(
 ) -> ProgramResult {
     let accounts_info_iter = &mut accounts.iter();
     let creator = next_account_info(accounts_info_iter)?;
-    //let pda_account = next_account_info(accounts_info_iter)?;
     let creator_pda = next_account_info(accounts_info_iter)?;
     let partner_pda = next_account_info(accounts_info_iter)?;
     let _index_pda = next_account_info(accounts_info_iter)?;
+    let creator_asset_mint = next_account_info(accounts_info_iter)?;
+    let creator_asset_ata = next_account_info(accounts_info_iter)?;
     let system_program = next_account_info(accounts_info_iter)?;
 
+    // Verify trade creator is the signer
+    if !creator.is_signer || creator.key.to_string() != user {
+        msg!("Signer error");
+        return Err(ProgramError::MissingRequiredSignature)
+    }
+
+    // Verify user asset mint and user asset data
+    let user_asset_mint_data = creator_asset_mint.data.borrow();
+    let user_asset_mint_state = Mint::unpack(&user_asset_mint_data)?;
+    let user_asset_ata_data = creator_asset_ata.data.borrow();
+    let user_asset_ata_state = Account::unpack(&user_asset_ata_data)?;
+
+    msg!("{}", user_asset);
+    msg!("{}", user_asset_ata_state.mint.to_string());
+    msg!("{}", creator_asset_mint.key);
+    if &user_asset_ata_state.mint != creator_asset_mint.key || user_asset != user_asset_ata_state.mint.to_string() {
+        msg!("Token account doesn't match the expected mint");
+        return Err(TradeError::DataError.into());
+    }
+
+    // Verify user has the assets to transfer
+    if user_asset_ata_state.amount < (user_asset_amount as u64 * u64::checked_pow(10 as u64, user_asset_mint_state.decimals as u32).unwrap()) {
+        msg!("Insufficient balance");
+        return Err(TradeError::InsufficientBalance.into())
+    }
+
+    // Verify partner asset mint
+    //let partner_asset_mint_data = partner_asset_mint.data.borrow();
+    //let partner_asset_mint_state = Mint::unpack(&partner_asset_mint_data)?;
+    // if !is_initialized_account(&partner_asset_mint_data) {
+    //     msg!("Partner asset mint not initialized");
+    //     return  Err(TradeError::DataError.into());
+    // }
+
+    // Get unique trade index for PDA creation and trade tracking
     let index = get_trade_index(accounts, program_id)?;
 
-    // let mut hasher = Sha256::new();
-    // let mut input: String = trader1.clone();
-    // input.push_str(&asset1);
-    // input.push_str(&trader2);
-    // input.push_str(&asset2);
-    // hasher.update(input);
-    // let result: String = format!("{:x}", hasher.finalize());
-
     // Get PDAs & bumps
-    //let (_pda, bump_seed) = Pubkey::find_program_address(&[result[..32].as_bytes().as_ref()], program_id);
     // Creator
     let mut hasher = Sha256::new();
     let mut input: String = user.clone();
@@ -89,7 +118,11 @@ fn create_trade(
         program_id
     );
 
-    msg!("creator_pda: {}", _creator_pda);
+    // Validate PDA input
+    if *creator_pda.key != _creator_pda {
+        msg!("Creator PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
 
     // Partner
     hasher = Sha256::new();
@@ -103,8 +136,13 @@ fn create_trade(
         program_id
     );
 
+    // Validate PDA input
+    if *partner_pda.key != _partner_pda {
+        msg!("Partner PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
+
     // Get rent info for PDAs
-    //let account_length: usize = 1 + (4 + trader1.len()) + (4 + asset1.len()) + 4 + (4 + trader2.len()) + (4 + asset2.len()) + 4;
     let account_length: usize = 8 + 1 + (4 + user.len()) + (4 + user_asset.len()) + 4 + (4 + partner.len()) + (4 + partner_asset.len()) + 4;
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(account_length);
@@ -137,19 +175,10 @@ fn create_trade(
     )?;
 
     // Retrieve PDA data
-    //let mut pda_data = try_from_slice_unchecked::<TradeAccountState>(&pda_account.data.borrow()).unwrap();
     let mut creator_data = try_from_slice_unchecked::<TradeAccountState>(&creator_pda.data.borrow()).unwrap();
     let mut partner_data = try_from_slice_unchecked::<TradeAccountState>(&partner_pda.data.borrow()).unwrap();
 
     // Update PDA data
-    // pda_data.active = true;
-    // pda_data.trader1 = trader1;
-    // pda_data.asset1 = asset1;
-    // pda_data.asset1_amount = asset1_amount;
-    // pda_data.trader2 = trader2;
-    // pda_data.asset2 = asset2;
-    // pda_data.asset2_amount = asset2_amount;
-
     // Creator
     creator_data.index = index;
     creator_data.is_creator = true;
@@ -170,8 +199,7 @@ fn create_trade(
     partner_data.partner_asset = user_asset.clone();
     partner_data.partner_asset_amount = user_asset_amount;
 
-    // Update PDA data
-    // pda_data.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
+    // Commit new PDA data
     creator_data.serialize(&mut &mut creator_pda.data.borrow_mut()[..])?;
     partner_data.serialize(&mut &mut partner_pda.data.borrow_mut()[..])?;
 
@@ -184,9 +212,16 @@ fn get_trade_index(accounts: &[AccountInfo], program_id: &Pubkey) -> Result<u64,
     let _creator_pda = next_account_info(accounts_info_iter)?;
     let _partner_pda = next_account_info(accounts_info_iter)?;
     let index_pda = next_account_info(accounts_info_iter)?;
+    let _creator_asset_mint = next_account_info(accounts_info_iter)?;
+    let _creator_asset_ata = next_account_info(accounts_info_iter)?;
     let system_program = next_account_info(accounts_info_iter)?;
 
-    let (_pda, bump_seed) = Pubkey::find_program_address(&["tradeindex".as_bytes().as_ref()], program_id);
+    let (pda, bump_seed) = Pubkey::find_program_address(&["tradeindex".as_bytes().as_ref()], program_id);
+
+    if *index_pda.key != pda {
+        msg!("Invalid index PDA");
+        return Err(TradeError::InvalidPDA.into())
+    }
 
     if index_pda.data_is_empty() {
         let account_length: usize = 8;
