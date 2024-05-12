@@ -1,5 +1,5 @@
 [package]
-name = "mos_eisley"
+name = "star_swap"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,5 +13,5 @@ spl-token = {version = "4.0.1", features = ["no-entrypoint"]}
 thiserror = "1.0.60"
 
 [lib]
-name = "mos_eisley"
+name = "star_swap"
 crate-type = ["cdylib", "lib"]

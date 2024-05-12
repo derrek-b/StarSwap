@@ -840,17 +840,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mos_eisley"
-version = "0.1.0"
-dependencies = [
- "borsh 1.4.0",
- "sha2 0.10.8",
- "solana-program",
- "spl-token",
- "thiserror",
-]
-
-[[package]]
 name = "num-bigint"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1381,6 +1370,17 @@ dependencies = [
  "num-traits",
  "num_enum",
  "solana-program",
+ "thiserror",
+]
+
+[[package]]
+name = "star_swap"
+version = "0.1.0"
+dependencies = [
+ "borsh 1.4.0",
+ "sha2 0.10.8",
+ "solana-program",
+ "spl-token",
  "thiserror",
 ]
 
