@@ -11,8 +11,7 @@ use solana_program::{
     sysvar::{rent::Rent, Sysvar},
 };
 use spl_token::state::{Account, Mint};
-use spl_token::state::is_initialized_account;
-use std::convert::TryInto;
+use std::{convert::TryInto, str::FromStr};
 use borsh::BorshSerialize;
 use sha2::{Sha256, Digest};
 use crate::instructions::TradeInstructions;
@@ -66,12 +65,25 @@ fn create_trade(
     let _index_pda = next_account_info(accounts_info_iter)?;
     let creator_asset_mint = next_account_info(accounts_info_iter)?;
     let creator_asset_ata = next_account_info(accounts_info_iter)?;
+    let partner_asset_mint = next_account_info(accounts_info_iter)?;
     let system_program = next_account_info(accounts_info_iter)?;
 
     // Verify trade creator is the signer
     if !creator.is_signer || creator.key.to_string() != user {
         msg!("Signer error");
         return Err(ProgramError::MissingRequiredSignature)
+    }
+
+    // Verify asset amounts are valid
+    if user_asset_amount <= 0 || partner_asset_amount <= 0 || user_asset_amount > u32::MAX || partner_asset_amount > u32::MAX {
+        msg!("Invalid asset amount");
+        return Err(TradeError::DataError.into())
+    }
+
+    // Verify solana system program id
+    if *system_program.key != Pubkey::from_str("11111111111111111111111111111111").unwrap() {
+        msg!("Incorrect system program");
+        return Err(TradeError::InvalidAccount.into())
     }
 
     // Verify user asset mint and user asset data
@@ -94,13 +106,23 @@ fn create_trade(
         return Err(TradeError::InsufficientBalance.into())
     }
 
+    // Verify partner address
+    match Pubkey::from_str(&partner.as_str()) {
+        Ok(_pk) => {
+        }
+        Err(e) => {
+            msg!("Invalid partner address");
+            return Err(TradeError::DataError.into())
+        }
+    }
+
     // Verify partner asset mint
-    //let partner_asset_mint_data = partner_asset_mint.data.borrow();
-    //let partner_asset_mint_state = Mint::unpack(&partner_asset_mint_data)?;
-    // if !is_initialized_account(&partner_asset_mint_data) {
-    //     msg!("Partner asset mint not initialized");
-    //     return  Err(TradeError::DataError.into());
-    // }
+    let partner_asset_mint_data = partner_asset_mint.data.borrow();
+    let partner_asset_mint_state = Mint::unpack(&partner_asset_mint_data)?;
+    if !&partner_asset_mint_state.is_initialized {
+        msg!("Partner asset mint not initialized");
+        return  Err(TradeError::DataError.into());
+    }
 
     // Get unique trade index for PDA creation and trade tracking
     let index = get_trade_index(accounts, program_id)?;

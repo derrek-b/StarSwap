@@ -308,11 +308,11 @@ async function createTrade(user, userAsset, userAssetATA, userAssetAmount, partn
         isSigner: false,
         isWritable: false,
       },
-      // {
-      //   pubkey: new web3.PublicKey(partnerAsset),
-      //   isSigner: false,
-      //   isWritable: false,
-      // },
+      {
+        pubkey: new web3.PublicKey(partnerAsset),
+        isSigner: false,
+        isWritable: false,
+      },
       {
         pubkey: web3.SystemProgram.programId,
         isSigner: false,
