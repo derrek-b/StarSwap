@@ -10,13 +10,12 @@ use solana_program::{
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
-use spl_token::state::{Account, Mint};
-use spl_token;
+use spl_token::state::{Account};
 use std::{convert::TryInto, str::FromStr};
 use borsh::BorshSerialize;
 use sha2::{Sha256, Digest};
-use crate::instructions::TradeInstructions;
-use crate::state::{TradeAccountState, TradeIndexState};
+use crate::instructions::EscrowInstructions;
+use crate::state::{EscrowAccountState, PartnerAccountState};
 use crate::error::TradeError;
 
 pub fn process_instruction(
@@ -24,14 +23,14 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instructions = TradeInstructions::unpack(instruction_data)?;
+    let instructions = EscrowInstructions::unpack(instruction_data)?;
 
     match instructions {
-        TradeInstructions::CreateTrade {
+        EscrowInstructions::CreateEscrow {
             partner,
             partner_asset_amount
         } => {
-            create_trade(
+            create_escrow(
                 program_id,
                 accounts,
                 //user,
@@ -43,22 +42,14 @@ pub fn process_instruction(
     }
 }
 
-fn create_trade(
+fn create_escrow(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    //user: String,
-    //user_asset: String,
     partner: String,
     partner_asset_amount: u64
 ) -> ProgramResult {
     let accounts_info_iter = &mut accounts.iter();
     let creator = next_account_info(accounts_info_iter)?;
-    // let creator_pda = next_account_info(accounts_info_iter)?;
-    // let partner_pda = next_account_info(accounts_info_iter)?;
-    // let _index_pda = next_account_info(accounts_info_iter)?;
-    // let creator_asset_mint = next_account_info(accounts_info_iter)?;
-    // let creator_asset_ata = next_account_info(accounts_info_iter)?;
-    // let partner_asset_mint = next_account_info(accounts_info_iter)?;
 
     // Verify trade creator is the signer
     if !creator.is_signer {
@@ -84,15 +75,21 @@ fn create_trade(
 
     // Get creator's token account for asset to be sent
     let sending_asset_account = next_account_info(accounts_info_iter)?;
-    if *sending_asset_account.owner != spl_token::ID {
-        msg!("Invalid receiving asset token account");
+    let sending_asset_data = sending_asset_account.data.borrow();
+    let sending_asset_info = Account::unpack(&sending_asset_data)?;
+
+    if *sending_asset_account.owner != spl_token::ID || !sending_asset_info.is_initialized() {
+        msg!("Invalid sending asset token account");
         return Err(TradeError::InvalidTokenAccount.into())
     }
     // any more validation needed??????????????????
 
     // Get creator's token account for asset to be recieved
     let receiving_asset_account = next_account_info(accounts_info_iter)?;
-    if *receiving_asset_account.owner != spl_token::ID {
+    let receiving_asset_data = receiving_asset_account.data.borrow();
+    let receiving_asset_info = Account::unpack(&receiving_asset_data)?;
+
+    if *receiving_asset_account.owner != spl_token::ID || !receiving_asset_info.is_initialized() {
         msg!("Invalid receiving asset token account");
         return Err(TradeError::InvalidTokenAccount.into())
     }
@@ -100,186 +97,130 @@ fn create_trade(
 
     // Get and validate escrow pda and data
     let escrow_pda = next_account_info(accounts_info_iter)?;
+    let mut hasher = Sha256::new();
+    let mut input: String = creator.key.to_string();
+    input.push_str(&partner);
+    input.push_str(&sending_asset_info.mint.to_string());
+    input.push_str(&receiving_asset_info.mint.to_string());
+    hasher.update(input);
+    let trade_hash: String = format!("{:x}", hasher.finalize());
 
+    let (_escrow_pda, escrow_bump) = Pubkey::find_program_address(
+        &[trade_hash[..32].as_bytes().as_ref()],
+        program_id
+    );
 
+    if *escrow_pda.key != _escrow_pda {
+        msg!("Creator PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
 
+    // Get rent info for escrow PDA
+    let escrow_length: usize =
+        1 +
+        32 +
+        (4 + creator.key.to_string().len()) +
+        (4 + sending_asset_account.key.to_string().len()) +
+        (4 + receiving_asset_account.key.to_string().len()) +
+        (4 + partner.len()) +
+        (4 + receiving_asset_info.mint.to_string().len()) +
+        8;
+    let escrow_rent = Rent::get()?;
+    let escrow_rent_lamports = escrow_rent.minimum_balance(escrow_length);
 
-
-
-
-
-
-
-//     // Verify partner asset mint
-//     let partner_asset_mint_data = partner_asset_mint.data.borrow();
-//     let partner_asset_mint_state = Mint::unpack(&partner_asset_mint_data)?;
-//     if !&partner_asset_mint_state.is_initialized {
-//         msg!("Partner asset mint not initialized");
-//         return  Err(TradeError::DataError.into());
-//     }
-
-//     // Get unique trade index for PDA creation and trade tracking
-//     let index = get_trade_index(accounts, program_id)?;
-
-//     // Get PDAs & bumps
-//     // Creator
-//     let mut hasher = Sha256::new();
-//     let mut input: String = user.clone();
-//     input.push_str(&index.to_string());
-//     hasher.update(input);
-//     let creator_result: String = format!("{:x}", hasher.finalize());
-
-//     let (_creator_pda, creator_bump) = Pubkey::find_program_address(
-//         &[creator_result[..32].as_bytes().as_ref()],
-//         program_id
-//     );
-
-//     // Validate PDA input
-//     if *creator_pda.key != _creator_pda {
-//         msg!("Creator PDAs do not match");
-//         return Err(TradeError::InvalidPDA.into())
-//     }
-
-//     // Partner
-//     hasher = Sha256::new();
-//     input = partner.clone();
-//     input.push_str(&index.to_string());
-//     hasher.update(input);
-//     let partner_result = format!("{:x}", hasher.finalize());
-
-//     let (_partner_pda, partner_bump) = Pubkey::find_program_address(
-//         &[partner_result[..32].as_bytes().as_ref()],
-//         program_id
-//     );
-
-//     // Validate PDA input
-//     if *partner_pda.key != _partner_pda {
-//         msg!("Partner PDAs do not match");
-//         return Err(TradeError::InvalidPDA.into())
-//     }
-
+    // Retrieve system_program to create PDAs
     let system_program = next_account_info(accounts_info_iter)?;
 
-//     // Get rent info for PDAs
-//     let account_length: usize = 1 + 8 + 1 + (4 + user.len()) + (4 + user_asset.len()) + 4 + (4 + partner.len()) + (4 + partner_asset.len()) + 4;
-//     let rent = Rent::get()?;
-//     let rent_lamports = rent.minimum_balance(account_length);
+    // Create escrow PDA
+    invoke_signed(
+        &system_instruction::create_account(
+            creator.key,
+            escrow_pda.key,
+            escrow_rent_lamports,
+            escrow_length.try_into().unwrap(),
+            program_id,
+        ),
+        &[creator.clone(), escrow_pda.clone(), system_program.clone()],
+        &[&[trade_hash[..32].as_bytes().as_ref(), &[escrow_bump]]],
+    )?;
 
-//     // Create PDAs for trade creator and partner
-//     // Creator
-//     invoke_signed(
-//         &system_instruction::create_account(
-//             creator.key,
-//             creator_pda.key,
-//             rent_lamports,
-//             account_length.try_into().unwrap(),
-//             program_id,
-//         ),
-//         &[creator.clone(), creator_pda.clone(), system_program.clone()],
-//         &[&[creator_result[..32].as_bytes().as_ref(), &[creator_bump]]],
-//     )?;
+    // Retrieve escrow PDA data
+    let mut escrow_data = try_from_slice_unchecked::<EscrowAccountState>(&escrow_pda.data.borrow()).unwrap();
 
-//     // Retrieve PDA data
-//     let mut creator_data = try_from_slice_unchecked::<TradeAccountState>(&creator_pda.data.borrow()).unwrap();
+    // Ensure escrow PDA is not already initialized
+    if escrow_data.is_initialized() {
+        msg!("Escrow PDA already initialized");
+        return Err(ProgramError::AccountAlreadyInitialized)
+    }
 
-//     if creator_data.is_initialized() {
-//         msg!("Trade PDAs already initialized");
-//         return Err(ProgramError::AccountAlreadyInitialized)
-//     }
+    // Store escrow data
+    escrow_data.is_initialized = true;
+    escrow_data.hash = trade_hash.clone();
+    escrow_data.creator = creator.key.to_string();
+    escrow_data.sending_asset_account = sending_asset_account.key.to_string();
+    escrow_data.receiving_asset_account = receiving_asset_account.key.to_string();
+    escrow_data.partner = partner.clone();
+    escrow_data.partner_asset = receiving_asset_info.mint.to_string();
+    escrow_data.partner_asset_amount = partner_asset_amount;
 
-//     // Partner
-//     invoke_signed(
-//         &system_instruction::create_account(
-//             creator.key,
-//             partner_pda.key,
-//             rent_lamports,
-//             account_length.try_into().unwrap(),
-//             program_id,
-//         ),
-//         &[creator.clone(), partner_pda.clone(), system_program.clone()],
-//         &[&[partner_result[..32].as_bytes().as_ref(), &[partner_bump]]],
-//     )?;
+    // Commit escrow data
+    escrow_data.serialize(&mut &mut escrow_pda.data.borrow_mut()[..])?;
 
-//     // Retrieve PDA data
-//     let mut partner_data = try_from_slice_unchecked::<TradeAccountState>(&partner_pda.data.borrow()).unwrap();
+    // Get and validate partner pda and data
+    let partner_pda = next_account_info(accounts_info_iter)?;
+    hasher = Sha256::new();
+    input = trade_hash.clone();
+    input.push_str(&partner);
+    hasher.update(input);
+    let partner_hash: String = format!("{:x}", hasher.finalize());
 
-//     if creator_data.is_initialized() {
-//         msg!("Trade PDAs already initialized");
-//         return Err(ProgramError::AccountAlreadyInitialized)
-//     }
+    let (_partner_pda, partner_bump) = Pubkey::find_program_address(
+        &[partner_hash[..32].as_bytes().as_ref()],
+        program_id
+    );
 
+    if *partner_pda.key != _partner_pda {
+        msg!("Partner PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
 
-//     // Update PDA data
-//     // Creator
-//     creator_data.is_initialized = true;
-//     creator_data.index = index;
-//     creator_data.is_creator = true;
-//     creator_data.user = user.clone();
-//     creator_data.user_asset = user_asset.clone();
-//     creator_data.user_asset_amount = user_asset_amount;
-//     creator_data.partner = partner.clone();
-//     creator_data.partner_asset = partner_asset.clone();
-//     creator_data.partner_asset_amount = partner_asset_amount;
+    // Get rent info for partner PDA
+    let partner_length: usize =
+        1 +
+        32 +
+        (4 + partner.len());
+    let partner_rent = Rent::get()?;
+    let partner_rent_lamports = partner_rent.minimum_balance(partner_length);
 
-//     // Partner
-//     creator_data.is_initialized = true;
-//     partner_data.index = index;
-//     partner_data.is_creator = false;
-//     partner_data.user = partner.clone();
-//     partner_data.user_asset = partner_asset.clone();
-//     partner_data.user_asset_amount = partner_asset_amount;
-//     partner_data.partner = user.clone();
-//     partner_data.partner_asset = user_asset.clone();
-//     partner_data.partner_asset_amount = user_asset_amount;
+    // Create partner PDA
+    invoke_signed(
+        &system_instruction::create_account(
+            creator.key,
+            partner_pda.key,
+            partner_rent_lamports,
+            partner_length.try_into().unwrap(),
+            program_id,
+        ),
+        &[creator.clone(), partner_pda.clone(), system_program.clone()],
+        &[&[partner_hash[..32].as_bytes().as_ref(), &[partner_bump]]],
+    )?;
 
-//     // Commit new PDA data
-//     creator_data.serialize(&mut &mut creator_pda.data.borrow_mut()[..])?;
-//     partner_data.serialize(&mut &mut partner_pda.data.borrow_mut()[..])?;
+    // Retrieve partner PDA data
+    let mut partner_data = try_from_slice_unchecked::<PartnerAccountState>(&partner_pda.data.borrow()).unwrap();
+
+    // Ensure partner PDA is not already initialized
+    if partner_data.is_initialized() {
+        msg!("Partner PDA already initialized");
+        return Err(ProgramError::AccountAlreadyInitialized)
+    }
+
+    // Store partner data
+    partner_data.is_initialized = true;
+    partner_data.hash = trade_hash.clone();
+    partner_data.pubkey = partner.clone();
+
+    // Commit new PDA data
+    partner_data.serialize(&mut &mut partner_pda.data.borrow_mut()[..])?;
 
     Ok(())
 }
-
-// fn get_trade_index(accounts: &[AccountInfo], program_id: &Pubkey) -> Result<u64, ProgramError> {
-//     let accounts_info_iter = &mut accounts.iter();
-//     let creator = next_account_info(accounts_info_iter)?;
-//     let _creator_pda = next_account_info(accounts_info_iter)?;
-//     let _partner_pda = next_account_info(accounts_info_iter)?;
-//     let index_pda = next_account_info(accounts_info_iter)?;
-//     let _creator_asset_mint = next_account_info(accounts_info_iter)?;
-//     let _creator_asset_ata = next_account_info(accounts_info_iter)?;
-//     let system_program = next_account_info(accounts_info_iter)?;
-
-//     let (pda, bump_seed) = Pubkey::find_program_address(&["tradeindex".as_bytes().as_ref()], program_id);
-
-//     if *index_pda.key != pda {
-//         msg!("Invalid index PDA");
-//         return Err(TradeError::InvalidPDA.into())
-//     }
-
-//     if index_pda.data_is_empty() {
-//         let account_length: usize = 8;
-//         let rent = Rent::get()?;
-//         let rent_lamports = rent.minimum_balance(8);
-
-//         invoke_signed(
-//             &system_instruction::create_account(
-//                 creator.key,
-//                 index_pda.key,
-//                 rent_lamports,
-//                 account_length.try_into().unwrap(),
-//                 program_id,
-//             ),
-//             &[creator.clone(), index_pda.clone(), system_program.clone()],
-//             &[&["tradeindex".as_bytes().as_ref(), &[bump_seed]]],
-//         )?;
-//     }
-
-//     let mut index_data = try_from_slice_unchecked::<TradeIndexState>(&index_pda.data.borrow()).unwrap();
-//     msg!("index: {}", index_data.index);
-
-//     index_data.index += 1;
-
-//     index_data.serialize(&mut &mut index_pda.data.borrow_mut()[..])?;
-
-//     Ok(index_data.index)
-// }
