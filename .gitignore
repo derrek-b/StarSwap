@@ -40,3 +40,7 @@ next-env.d.ts
 # Added by cargo
 
 /target
+
+# process
+
+src/processor_old.rs

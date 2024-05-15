@@ -10,7 +10,9 @@ pub enum TradeError {
     #[error("Data error")]
     DataError,
     #[error("Insufficient balance")]
-    InsufficientBalance
+    InsufficientBalance,
+    #[error("Invalid token account")]
+    InvalidTokenAccount,
 }
 
 impl From<TradeError> for ProgramError {
