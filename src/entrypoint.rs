@@ -21,7 +21,7 @@ fn process_instruction(
         instruction_data.len(),
     );
 
-    processor::process_instruction(program_id, accounts, instruction_data)?;
+    //processor::process_instruction(program_id, accounts, instruction_data)?;
 
     Ok(())
 }

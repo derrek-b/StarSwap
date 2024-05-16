@@ -10,6 +10,11 @@ import { Trade } from '../src/app/classes/Trade'
 console.log('Starting script...')
 
 // generate new keypair & pubkey for cli wallet
+//let mAtlasMint, mAtlasATAWallet, mAtlasATARando
+// let mPolisMint, mPolisATAWallet, mPolisATARando
+// let mFoodMint, mFoodATAWallet, mFoodATARando
+// let mFuelMint, mFuelATAWallet, mFuelATARando
+
 const rando = web3.Keypair.generate()
 const randoKey = rando.publicKey.toBase58()
 
@@ -18,6 +23,8 @@ const walletKey = wallet.publicKey.toBase58()
 
 // connect to localhost
 const connection = new web3.Connection('http://127.0.0.1:8899')
+
+// Airdrops for signers
 await airdropIfRequired(
   connection,
   rando.publicKey,
@@ -34,353 +41,191 @@ await airdropIfRequired(
 
 console.log('Minting tokens...')
 
-// Create mAtlas token mint
-const mAtlasMint = await token.createMint(
-  connection,
-  rando,
-  rando.publicKey,
-  rando.publicKey,
-  8,
-)
+const [ mAtlasMint, mAtlasATAWallet, mAtlasATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8)
+console.log('Atlas minted...')
 
-console.log('mAtlas:', mAtlasMint)
+//const [ mPolisMint, mPolisATAWallet, mPolisATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8)
+//console.log('Polis minted...')
 
-// Create mAtlas ATAs for wallet and rando accounts
-// Wallet
-const mAtlasATAWallet = await token.createAssociatedTokenAccount(
-  connection,
-  wallet,
-  mAtlasMint,
-  wallet.publicKey,
-)
-console.log('ATA:', mAtlasATAWallet)
+const [ mFoodMint, mFoodATAWallet, mFoodATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0)
+console.log('Food minted...')
 
-// Rando
-const mAtlasATARando = await token.createAssociatedTokenAccount(
-  connection,
-  rando,
-  mAtlasMint,
-  rando.publicKey,
-)
-
-const mAtlasWalletTA = await token.createAccount(
-  connection,
-  wallet,
-  mAtlasMint,
-  wallet.publicKey,
-  web3.Keypair.generate()
-)
-console.log('TA:', mAtlasWalletTA)
-
-// Mint 1000 mAtlas into both ATA accounts
-// Wallet
-const txsigAtlasWallet = await token.mintTo(
-  connection,
-  wallet,
-  mAtlasMint,
-  mAtlasATAWallet,
-  rando,
-  100000000000,
-)
-
-// Rando
-// const txsigAtlasRando = await token.mintTo(
-//   connection,
-//   rando,
-//   mAtlasMint,
-//   mAtlasATARando,
-//   rando,
-//   100000000000,
-// )
-
-// Transfer tokens from wallet ATA to wallet TA
-const txSigProgramToWallet = await token.transfer(
-  connection,
-  wallet,
-  mAtlasATAWallet,
-  mAtlasWalletTA,
-  wallet.publicKey,
-  1000000000,
-)
-
-console.log((await connection.getTokenAccountBalance(mAtlasWalletTA)).value.uiAmount)
-
-const programEscrowPDA = web3.PublicKey.createProgramAddressSync(
-  [Buffer.from('tempescrowpda')],
-  new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
-)
-console.log('PDA:', programEscrowPDA)
-
-// Transfer ownership of temp TA
-const txSigSetNewAuth = await token.setAuthority(
-  connection,
-  wallet,
-  mAtlasWalletTA,
-  wallet.publicKey,
-  token.AuthorityType.AccountOwner,
-  programEscrowPDA,
-)
-
-console.log((await connection.getTokenAccountBalance(mAtlasATAWallet)).value.uiAmount)
-console.log((await connection.getTokenAccountBalance(mAtlasWalletTA)).value.uiAmount)
-console.log((await connection.getTokenAccountBalance(mAtlasATARando)).value.uiAmount)
-
-// // Create mPolis token mint
-// const mPolisMint = await token.createMint(
-//   connection,
-//   rando,
-//   rando.publicKey,
-//   rando.publicKey,
-//   8,
-// )
-
-// console.log('mPolis:', mPolisMint)
-
-// // Create mPolis ATAs for wallet and rando accounts
-// // Wallet
-// const mPolisATAWallet = await token.createAssociatedTokenAccount(
-//   connection,
-//   wallet,
-//   mPolisMint,
-//   wallet.publicKey,
-// )
-
-// // Rando
-// const mPolisAtaRando = await token.createAssociatedTokenAccount(
-//   connection,
-//   rando,
-//   mPolisMint,
-//   rando.publicKey,
-// )
-
-// // Mint 1000 mPolis into both ATA accounts
-// // Wallet
-// const txsigPolisWallet = await token.mintTo(
-//   connection,
-//   wallet,
-//   mPolisMint,
-//   mPolisATAWallet,
-//   rando,
-//   100000000000,
-// )
-
-// // Rando
-// const txsigPolisRando = await token.mintTo(
-//   connection,
-//   rando,
-//   mPolisMint,
-//   mPolisAtaRando,
-//   rando,
-//   100000000000,
-// )
-
-// // Create mFood token mint
-// const mFoodMint = await token.createMint(
-//   connection,
-//   rando,
-//   rando.publicKey,
-//   rando.publicKey,
-//   8,
-// )
-
-// console.log('mFood:', mFoodMint)
-
-// // Create mFood ATAs for wallet and rando accounts
-// // Wallet
-// const mFoodATAWallet = await token.createAssociatedTokenAccount(
-//   connection,
-//   wallet,
-//   mFoodMint,
-//   wallet.publicKey,
-// )
-
-// // Rando
-// const mFoodAtaRando = await token.createAssociatedTokenAccount(
-//   connection,
-//   rando,
-//   mFoodMint,
-//   rando.publicKey,
-// )
-
-// // Mint 1000 mFood into both ATA accounts
-// // Wallet
-// const txsigFoodWallet = await token.mintTo(
-//   connection,
-//   wallet,
-//   mFoodMint,
-//   mFoodATAWallet,
-//   rando,
-//   100000000000,
-// )
-
-// // Rando
-// const txsigFoodRando = await token.mintTo(
-//   connection,
-//   rando,
-//   mFoodMint,
-//   mFoodAtaRando,
-//   rando,
-//   100000000000,
-// )
-
-// // Create mFuel token mint
-// const mFuelMint = await token.createMint(
-//   connection,
-//   rando,
-//   rando.publicKey,
-//   rando.publicKey,
-//   8,
-// )
-
-// console.log('mFuel:', mFuelMint)
-
-// // Create mFuel ATAs for wallet and rando accounts
-// // Wallet
-// const mFuelATAWallet = await token.createAssociatedTokenAccount(
-//   connection,
-//   wallet,
-//   mFuelMint,
-//   wallet.publicKey,
-// )
-
-// // Rando
-// const mFuelAtaRando = await token.createAssociatedTokenAccount(
-//   connection,
-//   rando,
-//   mFuelMint,
-//   rando.publicKey,
-// )
-
-// // Mint 1000 mFuel into both ATA accounts
-// // Wallet
-// const txsigFuelWallet = await token.mintTo(
-//   connection,
-//   wallet,
-//   mFuelMint,
-//   mFuelATAWallet,
-//   rando,
-//   100000000000,
-// )
-
-// // Rando
-// const txsigFuelRando = await token.mintTo(
-//   connection,
-//   rando,
-//   mFuelMint,
-//   mFuelAtaRando,
-//   rando,
-//   100000000000,
-// )
+//const [ mFuelMint, mFuelATAWallet, mFuelATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0)
+//console.log('Fuel minted...')
 
 console.log('Tokens minted.')
 console.log('Creating trades...')
 
-// submit new trades created by new key pair
-// await createTrade(randoKey, mPolisMint.toString(), mPolisAtaRando, 1, walletKey, mFoodMint.toString(), 1, rando, 1,)
-// await createTrade(randoKey, mPolisMint.toString(), mPolisAtaRando, 2, walletKey, mFuelMint.toString(), 2, rando, 2,)
+// submit new trades created by cli wallet
+await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, 100, rando, mFoodMint, 100)
 
-// submit trades created by phantom address on solana cli
-// await createTrade(walletKey, mAtlasMint.toString(), mAtlasATAWallet, 3, randoKey, mFoodMint.toString(), 3, wallet, 3,)
-// await createTrade(walletKey, mAtlasMint.toString(), mAtlasATAWallet, 4, randoKey, mFuelMint.toString(), 4, wallet, 4,)
-
-console.log('Trades created.')
+// console.log('Trades created.')
 
 console.log('Script finished!')
 
 // function to create new trade
-async function createTrade(user, userAsset, userAssetATA, userAssetAmount, partner, partnerAsset, partnerAssetAmount, signer, index,) {
+async function createTrade(connection, user, userAsset, userAssetATA, userAssetAmount, partner, partnerAsset, partnerAssetAmount) {
+  // 1. [x] create temp token account for creator
+  // 2. [x] send creator asset to temp account
+  // 3. [x] create escrow account and partner pda via program
+  // 4. [x] transfer ownership of temp account to escrow pda
+
+  const decimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
   const trade = new Trade(
-    user,
-    userAsset,
-    userAssetAmount,
-    partner,
-    partnerAsset,
-    partnerAssetAmount,
+    partner.publicKey.toString(),
+    decimals === 0 ? partnerAssetAmount : partnerAsset * 10 ** decimals, //Error will be here because Trade is expecting a u64**********
   )
   const buffer = trade.serialize()
+  console.log('trade serialized...')
 
   const tx = new web3.Transaction()
 
-  // Create PDA Accounts
-  // User
-  let hash = createHash('sha256').update(user + index).digest('hex')
-  const [userPda] = await web3.PublicKey.findProgramAddressSync(
-    [Buffer.from(hash.substring(0, 32))],
+  // Create escrow PDA account
+  let escrowHash = createHash('sha256').update(user.publicKey + partner.publicKey + userAsset + partnerAsset).digest('hex')
+  const [escrowPDA] = await web3.PublicKey.findProgramAddressSync(
+    [Buffer.from(escrowHash.substring(0, 32))],
     new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
   )
 
-  // Partner
-  hash = createHash('sha256').update(partner + index).digest('hex')
+  // Create partner PDA account
+  let partnerHash = createHash('sha256').update(escrowHash + partner.publicKey).digest('hex')
   const [partnerPda] = await web3.PublicKey.findProgramAddressSync(
-    [Buffer.from(hash.substring(0, 32))],
+    [Buffer.from(partnerHash.substring(0, 32))],
     new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
   )
-
-  // Index
-  const [indexPda] = await web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('tradeindex')],
-    new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
-  )
-
-  // Create escrow
-
-  // Create Create Trade Instruction
-  const inst = new web3.TransactionInstruction({
-    keys: [
-      {
-        pubkey: signer.publicKey,
-        isSigner: true,
-        isWritable: false,
-      },
-      {
-        pubkey: userPda,
-        isSigner: false,
-        isWritable: true,
-      },
-      {
-        pubkey: partnerPda,
-        isSigner: false,
-        isWritable: true,
-      },
-      {
-        pubkey: indexPda,
-        isSigner: false,
-        isWritable: true,
-      },
-      {
-        pubkey: new web3.PublicKey(userAsset),
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: userAssetATA,
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: new web3.PublicKey(partnerAsset),
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: web3.SystemProgram.programId,
-        isSigner: false,
-        isWritable: false,
-      },
-    ],
-    programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
-    data: buffer,
-  })
-
-  tx.add(inst)
-
-  // Create transfer instruction
-
+  console.log('PDAs created...')
 
   try {
-    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [signer],)
+    // Create temp token account to store user's asset
+    const tempTA = await token.createAccount(
+      connection,
+      user,
+      mAtlasMint,
+      user.publicKey,
+      web3.Keypair.generate()
+    )
+    console.log('tempTA created...')
+
+    // Transfer tokens from wallet ATA to wallet TA
+    const txSigFundTempTA = await token.transfer(
+      connection,
+      user,
+      userAssetATA,
+      tempTA,
+      user.publicKey,
+      decimals === 0 ? userAssetAmount : userAsset * 10 ** decimals,
+    )
+    console.log('tempTA funded...')
+
+    // Create escrow and partner PDAs via program
+    const inst = new web3.TransactionInstruction({
+      keys: [
+        {
+          pubkey: user.publicKey,
+          isSigner: true,
+          isWritable: false,
+        },
+        {
+          pubkey: tempTA,
+          isSigner: false,
+          isWritable: false,  //becomes writable if transfer of ownership is moved inside solana program
+        },
+        {
+          pubkey: userAssetATA,
+          isSigner: false,
+          isWritable: false,
+        },
+        {
+          pubkey: escrowPDA,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: partnerPda,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: web3.SystemProgram.programId,
+          isSigner: false,
+          isWritable: false,
+        },
+      ],
+      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
+      data: buffer,
+    })
+    console.log('instruction created...')
+    tx.add(inst)
+    console.log('sending transaction...')
+    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [user],)
+    console.log('Escrow created...')
+
+    // Transfer ownership of temp TA
+    const txSigSetNewAuth = await token.setAuthority(
+      connection,
+      user,
+      tempTA,
+      user.publicKey,
+      token.AuthorityType.AccountOwner,
+      escrowPDA,
+    )
+    console.log('ownership transferred...')
     console.log('trade created', txSig)
   } catch (e) {
+    alert(e)
     console.log(JSON.stringify(e))
   }
+}
+
+// function to create tokens and accounts
+async function createTokenAndAccounts(connection, wallet, rando, decimals) {
+  // Create token mint
+  const mint = await token.createMint(
+    connection,
+    rando,
+    rando.publicKey,
+    rando.publicKey,
+    decimals,
+  )
+
+  // Create ATAs for wallet and rando accounts
+  // Wallet
+  const ATAWallet = await token.createAssociatedTokenAccount(
+    connection,
+    wallet,
+    mint,
+    wallet.publicKey,
+  )
+
+  // Rando
+  const ATARando = await token.createAssociatedTokenAccount(
+    connection,
+    rando,
+    mint,
+    rando.publicKey,
+  )
+
+  // Mint 1000 assets into both ATA accounts
+  // Wallet
+  const txsigWallet = await token.mintTo(
+    connection,
+    wallet,
+    mint,
+    ATAWallet,
+    rando,
+    decimals === 0 ? 1000 : 1000 * 10 ** decimals,
+  )
+
+  // Rando
+  const txsigRando = await token.mintTo(
+    connection,
+    rando,
+    mint,
+    ATARando,
+    rando,
+    decimals === 0 ? 1000 : 1000 * 10 ** decimals,
+  )
+
+  return [ mint, ATAWallet, ATARando ]
+
 }

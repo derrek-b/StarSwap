@@ -10,7 +10,7 @@ use solana_program::{
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
-use spl_token::state::{Account};
+use spl_token::state::Account;
 use std::{convert::TryInto, str::FromStr};
 use borsh::BorshSerialize;
 use sha2::{Sha256, Digest};
@@ -95,8 +95,11 @@ fn create_escrow(
     }
     // any more validation needed??????????????????
 
-    // Get and validate escrow pda and data
+    // Get and validate escrow & partner pda and data
     let escrow_pda = next_account_info(accounts_info_iter)?;
+    let partner_pda = next_account_info(accounts_info_iter)?;
+
+    // Escrow
     let mut hasher = Sha256::new();
     let mut input: String = creator.key.to_string();
     input.push_str(&partner);
@@ -166,8 +169,7 @@ fn create_escrow(
     // Commit escrow data
     escrow_data.serialize(&mut &mut escrow_pda.data.borrow_mut()[..])?;
 
-    // Get and validate partner pda and data
-    let partner_pda = next_account_info(accounts_info_iter)?;
+    // Partner
     hasher = Sha256::new();
     input = trade_hash.clone();
     input.push_str(&partner);
