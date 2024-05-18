@@ -121,7 +121,7 @@ fn create_escrow(
     // Get rent info for escrow PDA
     let escrow_length: usize =
         1 +
-        32 +
+        (4 + trade_hash.len()) +
         (4 + creator.key.to_string().len()) +
         (4 + sending_asset_account.key.to_string().len()) +
         (4 + receiving_asset_account.key.to_string().len()) +
@@ -156,6 +156,8 @@ fn create_escrow(
         return Err(ProgramError::AccountAlreadyInitialized)
     }
 
+    msg!("receiving_asset_info.mint.to_string() {}", receiving_asset_info.mint.to_string());
+
     // Store escrow data
     escrow_data.is_initialized = true;
     escrow_data.hash = trade_hash.clone();
@@ -189,7 +191,7 @@ fn create_escrow(
     // Get rent info for partner PDA
     let partner_length: usize =
         1 +
-        32 +
+        (4 + trade_hash.len()) +
         (4 + partner.len());
     let partner_rent = Rent::get()?;
     let partner_rent_lamports = partner_rent.minimum_balance(partner_length);

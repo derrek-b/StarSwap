@@ -4,16 +4,11 @@ import * as token from '@solana/spl-token'
 import { getKeypairFromEnvironment } from '@solana-developers/helpers'
 import 'dotenv/config'
 const { createHash } = require('crypto')
+const BN = require('bn.js');
 
 import { Trade } from '../src/app/classes/Trade'
 
 console.log('Starting script...')
-
-// generate new keypair & pubkey for cli wallet
-//let mAtlasMint, mAtlasATAWallet, mAtlasATARando
-// let mPolisMint, mPolisATAWallet, mPolisATARando
-// let mFoodMint, mFoodATAWallet, mFoodATARando
-// let mFuelMint, mFuelATAWallet, mFuelATARando
 
 const rando = web3.Keypair.generate()
 const randoKey = rando.publicKey.toBase58()
@@ -41,46 +36,51 @@ await airdropIfRequired(
 
 console.log('Minting tokens...')
 
-const [ mAtlasMint, mAtlasATAWallet, mAtlasATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8)
-console.log('Atlas minted...')
+const atlasKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_ATLAS_SECRET_KEY_ON_LOCALHOST')
+const [ mAtlasMint, mAtlasATAWallet, mAtlasATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8, atlasKeypair)
+console.log('Atlas minted...', mAtlasMint.toString())
 
-//const [ mPolisMint, mPolisATAWallet, mPolisATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8)
-//console.log('Polis minted...')
+const polisKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_POLIS_SECRET_KEY_ON_LOCALHOST')
+const [ mPolisMint, mPolisATAWallet, mPolisATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8, polisKeypair)
+console.log('Polis minted...', mPolisMint.toString())
 
-const [ mFoodMint, mFoodATAWallet, mFoodATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0)
-console.log('Food minted...')
+const foodKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_FOOD_SECRET_KEY_ON_LOCALHOST')
+const [ mFoodMint, mFoodATAWallet, mFoodATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0, foodKeypair)
+console.log('Food minted...', mFoodMint.toString())
 
-//const [ mFuelMint, mFuelATAWallet, mFuelATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0)
-//console.log('Fuel minted...')
+const fuelKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_FUEL_SECRET_KEY_ON_LOCALHOST')
+const [ mFuelMint, mFuelATAWallet, mFuelATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0, fuelKeypair)
+console.log('Fuel minted...', mFuelMint.toString())
 
 console.log('Tokens minted.')
 console.log('Creating trades...')
 
 // submit new trades created by cli wallet
-await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, 100, rando, mFoodMint, 100)
+await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, mFoodATAWallet, 100, rando, mFoodMint, 100)
+await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, mFuelATAWallet, 200, rando, mFuelMint, 200)
 
-// console.log('Trades created.')
+// submit new trades created by rando wallet
+await createTrade(connection, rando, mPolisMint, mPolisATARando, mFoodATARando, 300, wallet, mFoodMint, 300)
+await createTrade(connection, rando, mPolisMint, mPolisATARando, mFuelATARando, 400, wallet, mFuelMint, 400)
+
+console.log('Trades created.')
 
 console.log('Script finished!')
 
 // function to create new trade
-async function createTrade(connection, user, userAsset, userAssetATA, userAssetAmount, partner, partnerAsset, partnerAssetAmount) {
-  // 1. [x] create temp token account for creator
-  // 2. [x] send creator asset to temp account
-  // 3. [x] create escrow account and partner pda via program
-  // 4. [x] transfer ownership of temp account to escrow pda
-
-  const decimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
+async function createTrade(connection, user, userAsset, userAssetATA, userReceivingAssetATA, userAssetAmount, partner, partnerAsset, partnerAssetAmount) {
+  const partnerAssetDecimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
+  const amount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
+  const u64Amount = new BN(amount, 'le')
   const trade = new Trade(
     partner.publicKey.toString(),
-    decimals === 0 ? partnerAssetAmount : partnerAsset * 10 ** decimals, //Error will be here because Trade is expecting a u64**********
+    u64Amount,
   )
   const buffer = trade.serialize()
-  console.log('trade serialized...')
 
   const tx = new web3.Transaction()
 
-  // Create escrow PDA account
+  // Create escrow PDA accountj
   let escrowHash = createHash('sha256').update(user.publicKey + partner.publicKey + userAsset + partnerAsset).digest('hex')
   const [escrowPDA] = await web3.PublicKey.findProgramAddressSync(
     [Buffer.from(escrowHash.substring(0, 32))],
@@ -95,90 +95,101 @@ async function createTrade(connection, user, userAsset, userAssetATA, userAssetA
   )
   console.log('PDAs created...')
 
+  // Set up for transaction creation
+  const tempAccount = web3.Keypair.generate()
+  const mint = await token.getMint(connection, userAsset)
+  const space = token.getAccountLenForMint(mint);
+  const lamports = await connection.getMinimumBalanceForRentExemption(space);
+  const tempTA = await token.getAssociatedTokenAddress(userAsset, tempAccount.publicKey, false)
+
+  // Create temp account instruction
+  const tempAccountIx = web3.SystemProgram.createAccount({
+      fromPubkey: user.publicKey,
+      newAccountPubkey: tempAccount.publicKey,
+      space,
+      lamports,
+      programId: token.TOKEN_PROGRAM_ID,
+  })
+
+  // Create temp ATA instruction
+  const tempTAIx = token.createAssociatedTokenAccountInstruction(
+    user.publicKey,
+    tempTA,
+    tempAccount.publicKey,
+    userAsset,
+  )
+
+  // Create transfer instruction
+  const userAssetDecimals = (await connection.getParsedAccountInfo(userAsset)).value.data.parsed.info.decimals
+
+  const transferIx = token.createTransferInstruction(
+    userAssetATA,
+    tempTA,
+    user.publicKey,
+    userAssetDecimals === 0 ? userAssetAmount : userAssetAmount * 10 ** userAssetDecimals,
+  )
+
+  // Create escrow instruction
+  const createEscrowIx = new web3.TransactionInstruction({
+    keys: [
+      {
+        pubkey: user.publicKey,
+        isSigner: true,
+        isWritable: false,
+      },
+      {
+        pubkey: tempTA,
+        isSigner: false,
+        isWritable: false,  //becomes writable if transfer of ownership is moved inside solana program
+      },
+      {
+        pubkey: userReceivingAssetATA,  //this needs to be the ATA of the token the user is receiving
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: escrowPDA,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: partnerPda,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: web3.SystemProgram.programId,
+        isSigner: false,
+        isWritable: false,
+      },
+    ],
+    programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
+    data: buffer,
+  })
+
+  // Change temp account ownership instruction
+  const changeOwnerIx = token.createSetAuthorityInstruction(
+    tempTA,
+    tempAccount.publicKey,
+    token.AuthorityType.AccountOwner,
+    escrowPDA
+  )
+
+  console.log('instructions created...')
+
   try {
-    // Create temp token account to store user's asset
-    const tempTA = await token.createAccount(
-      connection,
-      user,
-      mAtlasMint,
-      user.publicKey,
-      web3.Keypair.generate()
-    )
-    console.log('tempTA created...')
+    tx.add(tempAccountIx, tempTAIx, transferIx, createEscrowIx, changeOwnerIx)
+    tx.add(web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 250000}))
+    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [user, tempAccount])
 
-    // Transfer tokens from wallet ATA to wallet TA
-    const txSigFundTempTA = await token.transfer(
-      connection,
-      user,
-      userAssetATA,
-      tempTA,
-      user.publicKey,
-      decimals === 0 ? userAssetAmount : userAsset * 10 ** decimals,
-    )
-    console.log('tempTA funded...')
-
-    // Create escrow and partner PDAs via program
-    const inst = new web3.TransactionInstruction({
-      keys: [
-        {
-          pubkey: user.publicKey,
-          isSigner: true,
-          isWritable: false,
-        },
-        {
-          pubkey: tempTA,
-          isSigner: false,
-          isWritable: false,  //becomes writable if transfer of ownership is moved inside solana program
-        },
-        {
-          pubkey: userAssetATA,
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: escrowPDA,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: partnerPda,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: web3.SystemProgram.programId,
-          isSigner: false,
-          isWritable: false,
-        },
-      ],
-      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
-      data: buffer,
-    })
-    console.log('instruction created...')
-    tx.add(inst)
-    console.log('sending transaction...')
-    const txSig = await web3.sendAndConfirmTransaction(connection, tx, [user],)
-    console.log('Escrow created...')
-
-    // Transfer ownership of temp TA
-    const txSigSetNewAuth = await token.setAuthority(
-      connection,
-      user,
-      tempTA,
-      user.publicKey,
-      token.AuthorityType.AccountOwner,
-      escrowPDA,
-    )
-    console.log('ownership transferred...')
     console.log('trade created', txSig)
   } catch (e) {
-    alert(e)
     console.log(JSON.stringify(e))
   }
 }
 
 // function to create tokens and accounts
-async function createTokenAndAccounts(connection, wallet, rando, decimals) {
+async function createTokenAndAccounts(connection, wallet, rando, decimals, keypair) {
   // Create token mint
   const mint = await token.createMint(
     connection,
@@ -186,6 +197,7 @@ async function createTokenAndAccounts(connection, wallet, rando, decimals) {
     rando.publicKey,
     rando.publicKey,
     decimals,
+    keypair
   )
 
   // Create ATAs for wallet and rando accounts

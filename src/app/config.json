@@ -1,0 +1,10 @@
+{
+  "localhost": {
+    "atlasMint": "7GJ1tmZxoiKPKZUn7pLb4vebVWpDXikVMGKoZG6n755S",
+    "polisMint": "22ynCmMMaxnCSpUn68afVJRFoVR9zk5uh1aFzAYRLHMU",
+    "foodMint": "FgvWxRrv6sgGkfF15KUdZW4cWRg5aai1dBroPJwwZ5xm",
+    "fuelMint": "CNRPSxaNDYtaSaVLyVL7s1WUh6ZjDxZKa3vPRF1mFrL6"
+  },
+  "devnet": {
+  }
+}

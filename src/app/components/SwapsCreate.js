@@ -1,11 +1,12 @@
 // Dependencies
 //import { getKeypairFromEnvironment } from '@solana-developers/helpers' // localhost only
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import * as web3 from '@solana/web3.js'
 import * as token from '@solana/spl-token'
 import * as borsh from '@project-serum/borsh'
 import { sha256 } from 'crypto-hash'
+import config from '../config.json'
 require('dotenv').config()
 
 // Components
@@ -29,69 +30,53 @@ const SwapsCreate = () => {
 
   const { connection } = useConnection()
 
-  const [tradeAsset, setTradeAsset] = useState(null)
-  const [tradeAssetAmount, setTradeAssetAmount] = useState()
-  const [tradeAssetBalance, setTradeAssetBalance] = useState(0)
-  const [tradeForAsset, setTradeForAsset] = useState(null)
-  const [tradeForAssetAmount, setTradeForAssetAmount] = useState()
-  const [tradeForAssetBalance, setTradeForAssetBalance] = useState(0)
+  const [userAsset, setUserAsset] = useState(null)
+  const [userAssetAmount, setUserAssetAmount] = useState()
+  const [userAssetBalance, setUserAssetBalance] = useState(0)
+  const [partnerAsset, setPartnerAsset] = useState(null)
+  const [partnerAssetAmount, setPartnerAssetAmount] = useState()
+  const [partnerAssetBalance, setPartnerAssetBalance] = useState(0)
   const [partnerAddress, setPartnerAddress] = useState('')
+  const [network, setNetwork] = useState('')
 
   const createSwap = async (e) => {
     e.preventDefault()
-    const newTrade = new Trade(publicKey.toBase58(), tradeAsset, tradeAssetAmount, partnerAddress, tradeForAsset, tradeForAssetAmount)
-    const buffer = newTrade.serialize()
+    const partnerAssetDecimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
+    const amount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
+    const u64Amount = new BN(amount, 'le')
+      const trade = new Trade(
+      partner.publicKey.toString(),
+      u64Amount,
+    )
+
+    const buffer = trade.serialize()
 
     const tx = new web3.Transaction()
 
-    // Create PDAs
-    // console.log(publicKey + tradeAsset + partnerAddress + tradeForAsset)
-    // const hash = (await sha256(publicKey + tradeAsset + partnerAddress + tradeForAsset))
+    const tempAccount = web3.Keypair.generate()
+    const mint = await token.getMint(connection, new web3.PublicKey(tradeAsset))
+    const space = 500;
+    const lamports = await connection.getMinimumBalanceForRentExemption(space);
 
-    // const [pda] = await web3.PublicKey.findProgramAddressSync(
-    //   [Buffer.from(hash.substring(0,32))],
-    //   new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
-    // )
+    console.log(tempAccount, space, lamports)
 
-    const [indexPda] = await web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('tradeindex')],
-      new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
-    )
-
-    const inst = new web3.TransactionInstruction({
-      keys: [
-        {
-          pubkey: publicKey,
-          isSigner: true,
-          isWritable: false,
-        },
-        {
-          pubkey: pda,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: indexPda,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: web3.SystemProgram.programId,
-          isSigner: false,
-          isWritable: false,
-        },
-      ],
-      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID,),
-      data: buffer
+    // Create temp token account to store user's asset
+    const createTempAccountIx = web3.SystemProgram.createAccount({
+        fromPubkey: publicKey,
+        newAccountPubkey: tempAccount.publicKey,
+        space,
+        lamports,
+        programId: token.TOKEN_PROGRAM_ID,
     })
+    console.log('create account instruction created...')
 
-    tx.add(inst)
+    tx.add(createTempAccountIx)
 
     //console.log('transaction created...')
 
     try {
-      const txSig = await web3.sendAndConfirmTransaction(connection, tx, [keypair]) // localhost
-      //const txSig = await sendTransaction(tx, connection) // devnet and prod
+      const txSig = await web3.sendAndConfirmTransaction(connection, tx, [keypair, tempAccount]) // localhost
+      //const txSig = await sendTransaction(tx, connection, { signers: [tempAccount] }) // devnet and prod
       console.log(txSig)
       alert('Transaction Submitted')
     } catch (e) {
@@ -187,19 +172,27 @@ const SwapsCreate = () => {
     }
   }
 
+  useEffect(() => {
+    if (connection.rpcEndpoint === 'http://127.0.0.1:8899') {
+      console.log('connected to localhost')
+      setNetwork('localhost')
+    }
+  }, [])
+
   return (
     <div style={{ width: '600px', border: '1px solid black' }}>
+      {console.log('network', config[network].atlasMint)}
       <Form onSubmit={(e) => createSwap(e)} className='mx-2'>
         {/* Asset to be swapped */}
         <Form.Text className='float-end mx-1'>Balance: {tradeAssetBalance}</Form.Text>
         <InputGroup className='mt-1 mb-4'>
           <DropdownButton id='trade_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => tradeAssetSelected(e)}>
-            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_ATLAS_MINT}>Atlas</Dropdown.Item>
-            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_POLIS_MINT}>Polis</Dropdown.Item>
+            <Dropdown.Item eventKey={config[network].atlasMint}>Atlas</Dropdown.Item>
+            <Dropdown.Item eventKey={config[network].polisMint}>Polis</Dropdown.Item>
             <Dropdown.Divider />
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_AMMO_MINT}>Ammo</Dropdown.Item>
-            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_FOOD_MINT}>Food</Dropdown.Item>
-            <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_FUEL_MINT}>Fuel</Dropdown.Item>
+            <Dropdown.Item eventKey={config[network].foodMint}>Food</Dropdown.Item>
+            <Dropdown.Item eventKey={config[network].fuelMint}>Fuel</Dropdown.Item>
             <Dropdown.Item eventKey={process.env.NEXT_PUBLIC_TOOLKITS_MINT}>Toolkits</Dropdown.Item>
           </DropdownButton>
           <Form.Control type='number' placeholder='Amount to send' onChange={(e) => setTradeAssetAmount(e.target.value)}></Form.Control>
