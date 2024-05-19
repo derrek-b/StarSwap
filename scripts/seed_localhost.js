@@ -80,7 +80,7 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
 
   const tx = new web3.Transaction()
 
-  // Create escrow PDA accountj
+  // Create escrow PDA account
   let escrowHash = createHash('sha256').update(user.publicKey + partner.publicKey + userAsset + partnerAsset).digest('hex')
   const [escrowPDA] = await web3.PublicKey.findProgramAddressSync(
     [Buffer.from(escrowHash.substring(0, 32))],
@@ -98,8 +98,8 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
   // Set up for transaction creation
   const tempAccount = web3.Keypair.generate()
   const mint = await token.getMint(connection, userAsset)
-  const space = token.getAccountLenForMint(mint);
-  const lamports = await connection.getMinimumBalanceForRentExemption(space);
+  const space = token.getAccountLenForMint(mint)
+  const lamports = await connection.getMinimumBalanceForRentExemption(space)
   const tempTA = await token.getAssociatedTokenAddress(userAsset, tempAccount.publicKey, false)
 
   // Create temp account instruction
