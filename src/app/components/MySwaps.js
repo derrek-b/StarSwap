@@ -1,5 +1,6 @@
 // Dependencies
 import * as web3 from '@solana/web3.js'
+import * as token from '@solana/spl-token'
 import { useState, useEffect } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 
@@ -7,8 +8,8 @@ import { useConnection } from '@solana/wallet-adapter-react'
 import Table from 'react-bootstrap/Table'
 
 // Classes & Helpers
-import { Trade } from '../classes/Trade'
-import { TradeCoordinator } from '../classes/TradeCoordinator'
+import { Escrow } from '../classes/Escrow'
+import { EscrowCoordinator } from '../classes/EscrowCoordinator'
 import { GetAssetName } from '../helpers/Helpers'
 
 const MySwaps = () => {
@@ -20,19 +21,18 @@ const MySwaps = () => {
   const publicKey = keypair.publicKey
 
   const connection = useConnection()
-  const [userTrades, setUserTrades] = useState([])
+  const [userTrades, setUserTrades] = useState()
+  const [userAssetNames, setUserAssetNames] = useState([])
+  const [userAssetAmounts, setUserAssetAmounts] = useState([])
 
   const getUserTrades = () => {
-    console.dir(publicKey)
-    //connection.connection.getProgramAccounts(new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID))
-    TradeCoordinator.getUserTrades(connection, publicKey.toBase58())
-      .then(async (accounts) => {
-        const trades = accounts.map(({ account }) => {
-          return Trade.deserialize(account.data)
-        })
+    EscrowCoordinator.getUserTrades(connection, publicKey.toBase58())
+    .then(async (accounts) => {
+      const trades = accounts.map(({ pubkey, account }) => {
+        return Escrow.deserialize(connection, account.data)
+      })
 
         setUserTrades(trades)
-        console.log('trades:', trades)
       })
   }
 
@@ -45,7 +45,8 @@ const MySwaps = () => {
   return (
     <div>
       <h2>Open Trades Created</h2>
-       <Table bordered striped>
+      {userTrades && <Table bordered striped>
+        {console.log('userTrades', userTrades)}
         <thead>
           <tr>
             <th>Trade Asset</th>
@@ -58,15 +59,17 @@ const MySwaps = () => {
         <tbody>
           {userTrades && userTrades.map((trade, index) => (
             <tr key={index}>
-              <td>{GetAssetName(trade.user_asset)}</td>
+              {console.log('wtf', userAssetNames, userAssetAmounts)}
+              <td>{GetAssetName(trade.user_asset, connection)}</td>
               <td>{trade.user_asset_amount}</td>
-              <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
-              <td>{GetAssetName(trade.partner_asset)}</td>
-              <td>{trade.partner_asset_amount}</td>
+              <td>{trade.partner}</td>
+              <td>{GetAssetName(trade.partner_asset, connection)}</td>
+              <td>{(trade.partner_asset_amount).toString()}</td>
             </tr>
           ))}
         </tbody>
-       </Table>
+       </Table>}
+
     </div>
   )
 }

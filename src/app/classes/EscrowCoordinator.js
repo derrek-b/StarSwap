@@ -2,7 +2,7 @@
 import * as web3 from '@solana/web3.js'
 import bs58 from 'bs58'
 
-export class TradeCoordinator {
+export class EscrowCoordinator {
 
   static getUserTrades = async (connection, pubkey) => {
     const trades = await connection.connection.getProgramAccounts(
@@ -13,14 +13,7 @@ export class TradeCoordinator {
           {
             memcmp:
             {
-              offset: 8,
-              bytes: '2',
-            },
-          },
-          {
-            memcmp:
-            {
-              offset: 13,
+              offset: 73,
               bytes: bs58.encode(Buffer.from(pubkey)),
             },
           },
@@ -28,7 +21,14 @@ export class TradeCoordinator {
       }
     )
 
-    return trades
+    let userTrades = []
+    trades.map((trade) => {
+      if (trade.account.data.length > 300) {
+        userTrades.push(trade)
+      }
+    })
+
+    return userTrades
   }
 
   static getProposedTrades = async (connection, pubkey) => {

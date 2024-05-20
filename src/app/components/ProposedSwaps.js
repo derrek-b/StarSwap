@@ -8,8 +8,8 @@ import Table from 'react-bootstrap/Table'
 import Button from 'react-bootstrap/Button'
 
 // Classes & Helpers
-import { Trade } from '../classes/Trade'
-import { TradeCoordinator } from '../classes/TradeCoordinator'
+import { Escrow } from '../classes/Escrow'
+import { EscrowCoordinator } from '../classes/EscrowCoordinator'
 import { GetAssetName } from '../helpers/Helpers'
 
 const ProposedSwaps = () => {
@@ -24,16 +24,14 @@ const ProposedSwaps = () => {
   const [proposedTrades, setProposedTrades] = useState([])
 
   const getProposedTrades = () => {
-    console.dir(publicKey)
     //connection.connection.getProgramAccounts(new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID))
-    TradeCoordinator.getProposedTrades(connection, publicKey.toBase58())
+    EscrowCoordinator.getProposedTrades(connection, publicKey.toBase58())
       .then(async (accounts) => {
         const trades = accounts.map(({ account }) => {
           return Trade.deserialize(account.data)
         })
 
         setProposedTrades(trades)
-        console.log('trades:', trades)
       })
   }
 

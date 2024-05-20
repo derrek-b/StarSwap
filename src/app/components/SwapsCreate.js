@@ -18,7 +18,7 @@ import DropdownButton from 'react-bootstrap/DropdownButton'
 import Button from 'react-bootstrap/Button'
 
 // Classes
-import { Trade } from '../classes/Trade'
+import { Escrow } from '../classes/Escrow'
 
 
 const SwapsCreate = () => {
@@ -29,7 +29,7 @@ const SwapsCreate = () => {
   const keypair = web3.Keypair.fromSeed(array)
   const publicKey = keypair.publicKey
 
-  const { connection } = useConnection()
+  const connection = useConnection()
 
   const [userAsset, setUserAsset] = useState(null)
   const [userAssetAmount, setUserAssetAmount] = useState()
@@ -48,12 +48,12 @@ const SwapsCreate = () => {
     const partnerAssetDecimals = (await connection.getParsedAccountInfo(new web3.PublicKey(partnerAsset))).value.data.parsed.info.decimals
     const amount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
     const u64Amount = new BN(amount, 'le')
-    const trade = new Trade(
+    const escrow = new Escrow(
       partnerAddress,
       u64Amount,
     )
 
-    const buffer = trade.serialize()
+    const buffer = escrow.serialize()
 
     const tx = new web3.Transaction()
 
@@ -169,18 +169,18 @@ const SwapsCreate = () => {
       alert(JSON.stringify(e))
     }
 
-    // setTradeAsset(null)
-    // setTradeAssetBalance(0)
-    // setTradeForAsset(null)
-    // setTradeForAssetBalance(0)
+    // setUserAsset(null)
+    // setUserAssetBalance(0)
+    // setUserForAsset(null)
+    // setUserForAssetBalance(0)
     // setPartnerAddress('')
-    // document.querySelector('#trade_asset').textContent = 'Select Asset'
-    // document.querySelector('#trade_for_asset').textContent = 'Select Asset'
+    // document.querySelector('#user_asset').textContent = 'Select Asset'
+    // document.querySelector('#partner_asset').textContent = 'Select Asset'
   }
 
   const userAssetSelected = (e) => {
     setUserAsset(e)
-    const button = document.querySelector('#trade_asset')
+    const button = document.querySelector('#user_asset')
 
     setDDButton(e, button)
 
@@ -189,7 +189,7 @@ const SwapsCreate = () => {
 
   const partnerAssetSelected = (e) => {
     setPartnerAsset(e)
-    const button = document.querySelector('#trade_for_asset')
+    const button = document.querySelector('#partner_asset')
 
     setDDButton(e, button)
 
@@ -197,16 +197,16 @@ const SwapsCreate = () => {
   }
 
   const getUserAssetBalance = async (e) => {
-    const tradeAssetMint = new web3.PublicKey(e)
+    const userAssetMint = new web3.PublicKey(e)
 
-    const userTradeAssetATA = await token.getAssociatedTokenAddress(
-      tradeAssetMint,
+    const userAssetATA = await token.getAssociatedTokenAddress(
+      userAssetMint,
       publicKey,
     )
 
     try {
       console.log('trying to get asset balance...')
-      const info = await token.getAccount(connection, userTradeAssetATA)
+      const info = await token.getAccount(connection, userAssetATA)
       const mint = await token.getMint(connection, info.mint)
       setUserAssetBalance(Number(info.amount) / (10 ** mint.decimals))
     }catch {
@@ -252,7 +252,7 @@ const SwapsCreate = () => {
   }
 
   useEffect(() => {
-    if (connection.rpcEndpoint === 'http://127.0.0.1:8899') {
+    if (connection.connection.rpcEndpoint === 'http://127.0.0.1:8899') {
       console.log('connected to localhost')
       setNetwork('localhost')
     }
@@ -264,7 +264,7 @@ const SwapsCreate = () => {
         {/* Asset to be swapped */}
         <Form.Text className='float-end mx-1'>Balance: {userAssetBalance}</Form.Text>
         <InputGroup className='mt-1 mb-4'>
-          <DropdownButton id='trade_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => userAssetSelected(e)}>
+          <DropdownButton id='user_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => userAssetSelected(e)}>
             <Dropdown.Item eventKey={config[network].atlasMint}>Atlas</Dropdown.Item>
             <Dropdown.Item eventKey={config[network].polisMint}>Polis</Dropdown.Item>
             <Dropdown.Divider />
@@ -283,7 +283,7 @@ const SwapsCreate = () => {
         {/* Asset to swap for */}
         <Form.Text className='float-end mx-1 my-0'>Balance: {partnerAssetBalance}</Form.Text>
         <InputGroup className='mt-1 mb-4'>
-          <DropdownButton id='trade_for_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => partnerAssetSelected(e)} required>
+          <DropdownButton id='partner_asset' title='Select Asset' variant='outline-secondary' onSelect={(e) => partnerAssetSelected(e)} required>
             <Dropdown.Item eventKey={config[network].atlasMint}>Atlas</Dropdown.Item>
             <Dropdown.Item eventKey={config[network].polisMint}>Polis</Dropdown.Item>
             <Dropdown.Divider />

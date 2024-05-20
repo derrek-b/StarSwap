@@ -1,5 +1,17 @@
+import config from '../config.json'
+
 // Returns asset name from address
-export function GetAssetName(address) {
+export function GetAssetName(address, connection) {
+  if (connection.connection.rpcEndpoint === 'http://127.0.0.1:8899') {
+    switch (address) {
+      case config['localhost'].atlasMint: return 'Atlas'
+      case config['localhost'].polisMint: return 'Polis'
+
+      case config['localhost'].foodMint: return 'Food'
+      case config['localhost'].fuelMint: return 'Fuel'
+    }
+
+  }
   switch (address) {
     case process.env.NEXT_PUBLIC_ATLAS_MINT: return 'Atlas'
     case process.env.NEXT_PUBLIC_POLIS_MINT: return 'Polis'

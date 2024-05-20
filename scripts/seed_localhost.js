@@ -6,7 +6,7 @@ import 'dotenv/config'
 const { createHash } = require('crypto')
 const BN = require('bn.js');
 
-import { Trade } from '../src/app/classes/Trade'
+import { Escrow } from '../src/app/classes/Escrow'
 
 console.log('Starting script...')
 
@@ -72,7 +72,7 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
   const partnerAssetDecimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
   const amount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
   const u64Amount = new BN(amount, 'le')
-  const trade = new Trade(
+  const trade = new Escrow(
     partner.publicKey.toString(),
     u64Amount,
   )
@@ -179,7 +179,7 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
 
   try {
     tx.add(tempAccountIx, tempTAIx, transferIx, createEscrowIx, changeOwnerIx)
-    tx.add(web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 250000}))
+    tx.add(web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 300000}))
     const txSig = await web3.sendAndConfirmTransaction(connection, tx, [user, tempAccount])
 
     console.log('trade created', txSig)
