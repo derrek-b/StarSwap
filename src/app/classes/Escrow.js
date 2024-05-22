@@ -1,5 +1,6 @@
 import * as borsh from '@project-serum/borsh'
 import * as web3 from '@solana/web3.js'
+import { join } from 'path'
 
 export class Escrow {
   is_initialized
@@ -45,6 +46,7 @@ export class Escrow {
 
   static deserialize(connection, buffer = null) {
     if (!buffer) {
+      console.log('buffer is empty')
       return null
     }
 
@@ -58,13 +60,32 @@ export class Escrow {
       escrow.receiving_asset_account = receiving_asset_account
       escrow.partner_asset = partner_asset
 
-      const user_asset_info_bytes = connection.connection.getParsedAccountInfo(new web3.PublicKey(sending_asset_account))
-        .then((user_asset_info_bytes) => {
-          escrow.user_asset = user_asset_info_bytes.value.data.parsed.info.mint
-          escrow.user_asset_amount = user_asset_info_bytes.value.data.parsed.info.tokenAmount.uiAmount
-        })
+      return escrow
+    } catch (e) {
+      console.log('Deserialization error', e)
+      console.log(buffer)
+      return null
+    }
+  }
 
-      // console.log(escrow)
+  static partnerEscrowAccountSchema = borsh.struct([
+    borsh.bool('is_initialized'),
+    borsh.str('hash'),
+    borsh.str('pubkey'),
+  ])
+
+  static deserializeProposedTrade(connection, buffer = null) {
+    if (!buffer) {
+      console.log('buffer is empty')
+      return null
+    }
+
+    try {
+      const { is_initialized, hash, pubkey } = this.partnerEscrowAccountSchema.decode(buffer)
+      const escrow = new Escrow()
+      escrow.is_initialized = is_initialized
+      escrow.hash = hash
+      escrow.partner = pubkey
 
       return escrow
     } catch (e) {

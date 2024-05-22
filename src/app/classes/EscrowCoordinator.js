@@ -2,6 +2,8 @@
 import * as web3 from '@solana/web3.js'
 import bs58 from 'bs58'
 
+import { Escrow } from '../classes/Escrow'
+
 export class EscrowCoordinator {
 
   static getUserTrades = async (connection, pubkey) => {
@@ -22,7 +24,7 @@ export class EscrowCoordinator {
     )
 
     let userTrades = []
-    trades.map((trade) => {
+    trades.map(async (trade) => {
       if (trade.account.data.length > 300) {
         userTrades.push(trade)
       }
@@ -40,14 +42,7 @@ export class EscrowCoordinator {
           {
             memcmp:
             {
-              offset: 8,
-              bytes: '1',
-            },
-          },
-          {
-            memcmp:
-            {
-              offset: 13,
+              offset: 73,
               bytes: bs58.encode(Buffer.from(pubkey)),
             },
           },
@@ -55,6 +50,13 @@ export class EscrowCoordinator {
       }
     )
 
-    return trades
+    let userTrades = []
+    trades.map((trade) => {
+      if (trade.account.data.length < 150) {
+        userTrades.push(trade)
+      }
+    })
+
+    return userTrades
   }
 }

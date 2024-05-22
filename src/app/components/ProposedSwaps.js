@@ -28,7 +28,7 @@ const ProposedSwaps = () => {
     EscrowCoordinator.getProposedTrades(connection, publicKey.toBase58())
       .then(async (accounts) => {
         const trades = accounts.map(({ account }) => {
-          return Trade.deserialize(account.data)
+          return Escrow.deserializeProposedTrade(connection, account.data)
         })
 
         setProposedTrades(trades)
@@ -47,7 +47,7 @@ const ProposedSwaps = () => {
 
   return (
     <div>
-      <h2>Proposed Trades</h2>
+      <h2>Open Proposed Trades</h2>
        <Table bordered striped>
         <thead>
           <tr>
@@ -62,11 +62,11 @@ const ProposedSwaps = () => {
         <tbody>
           {proposedTrades && proposedTrades.map((trade, index) => (
             <tr key={index}>
-              <td>{GetAssetName(trade.user_asset)}</td>
-              <td>{trade.user_asset_amount}</td>
+              <td>{}</td>
+              <td>{}</td>
               <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
-              <td>{GetAssetName(trade.partner_asset)}</td>
-              <td>{trade.partner_asset_amount}</td>
+              <td>{}</td>
+              <td>{}</td>
               <td><Button onClick={() => acceptTrade(index)}>&#10003;</Button></td>
             </tr>
           ))}

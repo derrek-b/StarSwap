@@ -21,19 +21,25 @@ const MySwaps = () => {
   const publicKey = keypair.publicKey
 
   const connection = useConnection()
-  const [userTrades, setUserTrades] = useState()
-  const [userAssetNames, setUserAssetNames] = useState([])
-  const [userAssetAmounts, setUserAssetAmounts] = useState([])
+  const [userTrades, setUserTrades] = useState([])
+
 
   const getUserTrades = () => {
     EscrowCoordinator.getUserTrades(connection, publicKey.toBase58())
     .then(async (accounts) => {
-      const trades = accounts.map(({ pubkey, account }) => {
+      const trades = accounts.map(({ account }) => {
         return Escrow.deserialize(connection, account.data)
       })
 
-        setUserTrades(trades)
+      trades.forEach(async (trade) => {
+        connection.connection.getParsedAccountInfo(new web3.PublicKey(trade.sending_asset_account))
+          .then((bytes_info) => {
+            trade.user_asset = bytes_info.value.data.parsed.info.mint
+            trade.user_asset_amount = bytes_info.value.data.parsed.info.tokenAmount.uiAmount
+            setUserTrades(trades)
+          })
       })
+    })
   }
 
   useEffect(() => {
@@ -45,8 +51,7 @@ const MySwaps = () => {
   return (
     <div>
       <h2>Open Trades Created</h2>
-      {userTrades && <Table bordered striped>
-        {console.log('userTrades', userTrades)}
+      <Table bordered striped>
         <thead>
           <tr>
             <th>Trade Asset</th>
@@ -59,16 +64,15 @@ const MySwaps = () => {
         <tbody>
           {userTrades && userTrades.map((trade, index) => (
             <tr key={index}>
-              {console.log('wtf', userAssetNames, userAssetAmounts)}
               <td>{GetAssetName(trade.user_asset, connection)}</td>
               <td>{trade.user_asset_amount}</td>
-              <td>{trade.partner}</td>
+              <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
               <td>{GetAssetName(trade.partner_asset, connection)}</td>
               <td>{(trade.partner_asset_amount).toString()}</td>
             </tr>
           ))}
         </tbody>
-       </Table>}
+       </Table>
 
     </div>
   )
