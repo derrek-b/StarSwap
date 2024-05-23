@@ -1,11 +1,15 @@
+'use client'
+
 // Dependencies
 import * as web3 from '@solana/web3.js'
 import { useState, useEffect } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
+import BN from 'bn.js'
 
 // Components
 import Table from 'react-bootstrap/Table'
 import Button from 'react-bootstrap/Button'
+import Spinner from 'react-bootstrap/Spinner'
 
 // Classes & Helpers
 import { Escrow } from '../classes/Escrow'
@@ -21,6 +25,7 @@ const ProposedSwaps = () => {
   const publicKey = keypair.publicKey
 
   const connection = useConnection()
+  const [isLoading, setIsLoading] = useState(true)
   const [proposedTrades, setProposedTrades] = useState([])
 
   const getProposedTrades = () => {
@@ -31,7 +36,19 @@ const ProposedSwaps = () => {
           return Escrow.deserializeProposedTrade(connection, account.data)
         })
 
-        setProposedTrades(trades)
+        trades.forEach(async (trade) => {
+          const tradeAccount = await EscrowCoordinator.getTradeByHash(connection, trade.hash)
+          const escrow = Escrow.deserialize(connection, tradeAccount.account.data)
+          trade.creator = escrow.creator.slice(0, 4) + '...' + escrow.creator.slice(-4)
+          trade.partner_asset = escrow.partner_asset
+          trade.partner_asset_amount = escrow.partner_asset_amount.toString()
+
+          const bytes_info = await connection.connection.getParsedAccountInfo(new web3.PublicKey(escrow.sending_asset_account))
+          trade.user_asset = bytes_info.value.data.parsed.info.mint
+          trade.user_asset_amount = bytes_info.value.data.parsed.info.tokenAmount.uiAmount
+          setProposedTrades(trades)
+          setIsLoading(false)
+        })
       })
   }
 
@@ -40,38 +57,46 @@ const ProposedSwaps = () => {
   }
 
   useEffect(() => {
-    if (connection && publicKey) {
+    if (isLoading) {
       getProposedTrades()
     }
-  }, [])
+  }, [isLoading, proposedTrades])
 
   return (
     <div>
       <h2>Open Proposed Trades</h2>
-       <Table bordered striped>
-        <thead>
-          <tr>
-            <th>Trade Asset</th>
-            <th>Amount</th>
-            <th>Trade Partner</th>
-            <th>Trade For</th>
-            <th>Amount</th>
-            <th>Accept</th>
-          </tr>
-        </thead>
-        <tbody>
-          {proposedTrades && proposedTrades.map((trade, index) => (
-            <tr key={index}>
-              <td>{}</td>
-              <td>{}</td>
-              <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
-              <td>{}</td>
-              <td>{}</td>
-              <td><Button onClick={() => acceptTrade(index)}>&#10003;</Button></td>
-            </tr>
-          ))}
-        </tbody>
-       </Table>
+        {isLoading ? (
+          <Spinner animation='border' variant='secondary'></Spinner>
+        ) : (
+          <Table bordered striped>
+            <thead>
+              <tr>
+                <th>Trade Asset</th>
+                <th>Amount</th>
+                <th>Trade Partner</th>
+                <th>Trade For</th>
+                <th>Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+                {proposedTrades.map((trade, index) => (
+                <tr key={index}>
+                  <td>{GetAssetName(trade.partner_asset, connection)}</td>
+                  <td>{trade.partner_asset_amount}</td>
+                  <td>{trade.creator}</td>
+                  <td>{GetAssetName(trade.user_asset, connection)}</td>
+                  <td>{trade.user_asset_amount}</td>
+                  <td>
+                    <Button variant='success' onClick={() => acceptTrade(index)}>&#10003;</Button>
+                    <span> </span>
+                    <Button variant='danger' onClick={() => cancelTrade(index)}>&times;</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
     </div>
   )
 }

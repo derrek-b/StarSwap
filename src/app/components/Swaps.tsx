@@ -12,10 +12,10 @@ import ProposedSwaps from './ProposedSwaps'
 const Swaps = () => {
   return (
     <div className='mx-auto' style={{ width: '600px' }}>
-      <Nav>
+      {/* <Nav>
         <Nav.Link>Create Swap</Nav.Link>
         <Nav.Link>Open Swaps</Nav.Link>
-      </Nav>
+      </Nav> */}
 
       <SwapsCreate />
 

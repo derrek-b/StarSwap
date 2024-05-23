@@ -206,8 +206,8 @@ const SwapsCreate = () => {
 
     try {
       console.log('trying to get asset balance...')
-      const info = await token.getAccount(connection, userAssetATA)
-      const mint = await token.getMint(connection, info.mint)
+      const info = await token.getAccount(connection.connection, userAssetATA)
+      const mint = await token.getMint(connection.connection, info.mint)
       setUserAssetBalance(Number(info.amount) / (10 ** mint.decimals))
     }catch {
       console.log('catching failure to get asset balance...')
@@ -225,8 +225,8 @@ const SwapsCreate = () => {
 
     try {
       console.log('trying to get for asset balance...')
-      const info = await token.getAccount(connection, partnerAssetATA)
-      const mint = await token.getMint(connection, info.mint)
+      const info = await token.getAccount(connection.connection, partnerAssetATA)
+      const mint = await token.getMint(connection.connection, info.mint)
       setPartnerAssetBalance(Number(info.amount) / (10 ** mint.decimals))
     }catch {
       console.log('catching failure to get for asset balance...')

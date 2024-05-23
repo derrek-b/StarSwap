@@ -61,14 +61,14 @@ const AppNavbar = () => {
         <span className='brand maroon align-middle' >Mos Eisley</span>
       </Navbar.Brand>
 
-      <Nav>
+      {/* <Nav>
         <Nav.Link className='nav mt-3' >Flea Market</Nav.Link>
         <Nav.Link className='nav mt-3' >Order Book</Nav.Link>
-      </Nav>
+      </Nav> */}
 
       <Navbar.Collapse className='justify-content-end'>
-        <span>Sol Balance:
-          {publicKey ? (
+        <span>{/* Sol Balance:
+           {publicKey ? (
             balance
           ) : (
             '0.00'
@@ -78,7 +78,7 @@ const AppNavbar = () => {
             atlas
           ) : (
             '0.00\n'
-          )}
+          )} */}
           {isClient ? (
               <WalletMultiButton style={{ backgroundColor: 'rgb(133,2,2)' }} />
           ) : (

@@ -59,4 +59,32 @@ export class EscrowCoordinator {
 
     return userTrades
   }
+
+  static getTradeByHash = async (connection, hash) => {
+    const trades = await connection.connection.getProgramAccounts(
+      new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
+      {
+        filters:
+        [
+          {
+            memcmp:
+            {
+              offset: 5,
+              bytes: bs58.encode(Buffer.from(hash)),
+            },
+          },
+        ]
+      }
+    )
+
+    if (trades.length != 2) {
+      return null
+    }
+
+    if (trades[0].account.data.length > 300) {
+      return trades[0]
+    } else {
+      return trades[1]
+    }
+  }
 }

@@ -70,11 +70,12 @@ console.log('Script finished!')
 // function to create new trade
 async function createTrade(connection, user, userAsset, userAssetATA, userReceivingAssetATA, userAssetAmount, partner, partnerAsset, partnerAssetAmount) {
   const partnerAssetDecimals = (await connection.getParsedAccountInfo(partnerAsset)).value.data.parsed.info.decimals
-  const amount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
-  const u64Amount = new BN(amount, 'le')
+  const partnerAmount = partnerAssetDecimals === 0 ? partnerAssetAmount : partnerAssetAmount * 10 ** partnerAssetDecimals
+  const u64AmountPartner = new BN(partnerAmount)
+
   const trade = new Escrow(
     partner.publicKey.toString(),
-    u64Amount,
+    u64AmountPartner,
   )
   const buffer = trade.serialize()
 
@@ -121,12 +122,14 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
 
   // Create transfer instruction
   const userAssetDecimals = (await connection.getParsedAccountInfo(userAsset)).value.data.parsed.info.decimals
+  const userAmount = userAssetDecimals === 0 ? userAssetAmount : userAssetAmount * 10 ** userAssetDecimals
+  const u64AmountUser = new BN(userAmount)
 
   const transferIx = token.createTransferInstruction(
     userAssetATA,
     tempTA,
     user.publicKey,
-    userAssetDecimals === 0 ? userAssetAmount : userAssetAmount * 10 ** userAssetDecimals,
+    u64AmountUser,
   )
 
   // Create escrow instruction

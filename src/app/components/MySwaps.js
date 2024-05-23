@@ -6,6 +6,7 @@ import { useConnection } from '@solana/wallet-adapter-react'
 
 // Components
 import Table from 'react-bootstrap/Table'
+import Button from 'react-bootstrap/Button'
 
 // Classes & Helpers
 import { Escrow } from '../classes/Escrow'
@@ -21,6 +22,7 @@ const MySwaps = () => {
   const publicKey = keypair.publicKey
 
   const connection = useConnection()
+  const [isLoading, setIsLoading] = useState(true)
   const [userTrades, setUserTrades] = useState([])
 
 
@@ -37,16 +39,17 @@ const MySwaps = () => {
             trade.user_asset = bytes_info.value.data.parsed.info.mint
             trade.user_asset_amount = bytes_info.value.data.parsed.info.tokenAmount.uiAmount
             setUserTrades(trades)
+            setIsLoading(false)
           })
       })
     })
   }
 
   useEffect(() => {
-    if (connection && publicKey) {
+    if (isLoading) {
       getUserTrades()
     }
-  }, [])
+  }, [isLoading])
 
   return (
     <div>
@@ -59,6 +62,7 @@ const MySwaps = () => {
             <th>Trade Partner</th>
             <th>Trade For</th>
             <th>Amount</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -69,6 +73,7 @@ const MySwaps = () => {
               <td>{trade.partner.slice(0, 4)}...{trade.partner.slice(-4)}</td>
               <td>{GetAssetName(trade.partner_asset, connection)}</td>
               <td>{(trade.partner_asset_amount).toString()}</td>
+              <td><Button variant='danger' onClick={() => cancelTrade(index)}>&times;</Button></td>
             </tr>
           ))}
         </tbody>

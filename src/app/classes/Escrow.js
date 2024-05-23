@@ -51,7 +51,17 @@ export class Escrow {
     }
 
     try {
-      const { is_initialized, hash, creator, sending_asset_account, receiving_asset_account, partner, partner_asset, partner_asset_amount } = this.escrowAccountSchema.decode(buffer)
+      const {
+        is_initialized,
+        hash,
+        creator,
+        sending_asset_account,
+        receiving_asset_account,
+        partner,
+        partner_asset,
+        partner_asset_amount
+      } = this.escrowAccountSchema.decode(buffer)
+
       const escrow = new Escrow(partner, partner_asset_amount)
       escrow.is_initialized = is_initialized
       escrow.hash = hash
@@ -81,7 +91,12 @@ export class Escrow {
     }
 
     try {
-      const { is_initialized, hash, pubkey } = this.partnerEscrowAccountSchema.decode(buffer)
+      const {
+        is_initialized,
+        hash,
+        pubkey
+      } = this.partnerEscrowAccountSchema.decode(buffer)
+
       const escrow = new Escrow()
       escrow.is_initialized = is_initialized
       escrow.hash = hash

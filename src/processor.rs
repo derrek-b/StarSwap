@@ -33,8 +33,6 @@ pub fn process_instruction(
             create_escrow(
                 program_id,
                 accounts,
-                //user,
-                //user_asset,
                 partner,
                 partner_asset_amount,
             )
