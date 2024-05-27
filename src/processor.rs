@@ -1,5 +1,14 @@
 use solana_program::{
-    account_info::{next_account_info, AccountInfo}, borsh1::try_from_slice_unchecked, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, program_pack::{IsInitialized, Pack}, pubkey::Pubkey, system_instruction, system_program, sysvar::{rent::Rent, Sysvar}
+    account_info::{next_account_info, AccountInfo},
+    borsh1::try_from_slice_unchecked,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    program_pack::{IsInitialized, Pack},
+    pubkey::Pubkey,system_instruction,
+    system_program,
+    sysvar::{rent::Rent, Sysvar}
 };
 use spl_token::{state::Account, instruction::{transfer, close_account}};
 use std::{convert::TryInto, str::FromStr};
@@ -366,23 +375,33 @@ fn cancel_escrow(
         return Err(TradeError::InvalidPDA.into())
     }
 
-    // Transfer partner PDA lamports back to trade's creator
-    let mut creator_lamports = creator_account.lamports();
-    **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(partner_account.lamports()).unwrap();
-    **partner_account.lamports.borrow_mut() = 0;
+    // Close partner PDA and return rent to trade creator
+    close_pda(creator_account, partner_account);
 
-    // Zero out parter PDA data
-    let mut parter_data = partner_account.data.borrow_mut();
-    parter_data.fill(0);
+    close_pda(creator_account, escrow_account);
 
-    // Transfer escrow PDA lamports back to trade's creator
-    creator_lamports = creator_account.lamports();
-    **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(escrow_account.lamports()).unwrap();
-    **escrow_account.lamports.borrow_mut() = 0;
+    // // Transfer escrow PDA lamports back to trade's creator
+    // let creator_lamports = creator_account.lamports();
+    // **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(escrow_account.lamports()).unwrap();
+    // **escrow_account.lamports.borrow_mut() = 0;
 
-    // Zero out escrow PDA data
-    let mut escrow_data = escrow_account.data.borrow_mut();
-    escrow_data.fill(0);
+    // // Zero out escrow PDA data
+    // let mut escrow_data = escrow_account.data.borrow_mut();
+    // escrow_data.fill(0);
 
     Ok(())
+}
+
+fn close_pda(
+    destination_account: &AccountInfo,
+    pda_account: &AccountInfo,
+) {
+    // Transfer rent to destination account
+    let lamports = destination_account.lamports();
+    **destination_account.lamports.borrow_mut() = lamports.checked_add(pda_account.lamports()).unwrap();
+    **pda_account.lamports.borrow_mut() = 0;
+
+    // Zero out pda data
+    let mut pda_data = pda_account.data.borrow_mut();
+    pda_data.fill(0);
 }
