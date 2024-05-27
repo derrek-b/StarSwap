@@ -13,12 +13,32 @@ pub enum EscrowInstructions {
         partner: String,
         partner_asset_amount: u64,
     },
+    // ACCOUNTS NEEDED
+    // 1 [signer] user canceling the trade, either the creator or the partner
+    // 2 [writable] program PDA that stores trade info and owns account #3
+    // 3 [writable] token account containing creator's asset (temp account transferred to PDA's ownership)
+    // 4 [writable] program PDA that stores partner data
+    // 5 [writable] creator's ATA that escrowed assets will be returned to
+    // 6 [writable] creator's native account to return rent fees from closed temp token account and PDAs
+    //   (only included if signer of cancel instruction is the trade partner and not the creator)
+    // 7 [] token program
+    // 8 [] system program
+    CancelEscrow {
+        hash: String,
+        cancel_by_creator: bool,
+    }
 }
 
 #[derive(BorshDeserialize, Debug)]
-struct EscrowPayload {
+struct CreateEscrowPayload {
     partner: String,
     partner_asset_amount: u64,
+}
+
+#[derive(BorshDeserialize, Debug)]
+struct CancelEscrowPayload {
+    hash: String,
+    cancel_by_creator: bool,
 }
 
 impl EscrowInstructions {
@@ -27,11 +47,18 @@ impl EscrowInstructions {
 
         Ok(match variant {
             0 => {
-                let payload: EscrowPayload = EscrowPayload::try_from_slice(rest).unwrap();
+                let payload: CreateEscrowPayload = CreateEscrowPayload::try_from_slice(rest).unwrap();
                 Self::CreateEscrow {
                     partner: payload.partner,
                     partner_asset_amount: payload.partner_asset_amount }
                 },
+            1 => {
+                let payload: CancelEscrowPayload = CancelEscrowPayload::try_from_slice(rest).unwrap();
+                Self::CancelEscrow {
+                    hash: payload.hash,
+                    cancel_by_creator: payload.cancel_by_creator,
+                }
+            }
             _ => return Err(ProgramError::InvalidInstructionData)
         })
     }

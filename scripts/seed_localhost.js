@@ -40,28 +40,28 @@ const atlasKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_ATLAS_SECRET_KEY_ON_
 const [ mAtlasMint, mAtlasATAWallet, mAtlasATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8, atlasKeypair)
 console.log('Atlas minted...', mAtlasMint.toString())
 
-const polisKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_POLIS_SECRET_KEY_ON_LOCALHOST')
-const [ mPolisMint, mPolisATAWallet, mPolisATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8, polisKeypair)
-console.log('Polis minted...', mPolisMint.toString())
+// const polisKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_POLIS_SECRET_KEY_ON_LOCALHOST')
+// const [ mPolisMint, mPolisATAWallet, mPolisATARando ] = await createTokenAndAccounts(connection, wallet, rando, 8, polisKeypair)
+// console.log('Polis minted...', mPolisMint.toString())
 
 const foodKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_FOOD_SECRET_KEY_ON_LOCALHOST')
 const [ mFoodMint, mFoodATAWallet, mFoodATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0, foodKeypair)
 console.log('Food minted...', mFoodMint.toString())
 
-const fuelKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_FUEL_SECRET_KEY_ON_LOCALHOST')
-const [ mFuelMint, mFuelATAWallet, mFuelATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0, fuelKeypair)
-console.log('Fuel minted...', mFuelMint.toString())
+// const fuelKeypair = getKeypairFromEnvironment('NEXT_PUBLIC_FUEL_SECRET_KEY_ON_LOCALHOST')
+// const [ mFuelMint, mFuelATAWallet, mFuelATARando ] = await createTokenAndAccounts(connection, wallet, rando, 0, fuelKeypair)
+// console.log('Fuel minted...', mFuelMint.toString())
 
 console.log('Tokens minted.')
 console.log('Creating trades...')
 
 // submit new trades created by cli wallet
 await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, mFoodATAWallet, 100, rando, mFoodMint, 100)
-await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, mFuelATAWallet, 200, rando, mFuelMint, 200)
+// await createTrade(connection, wallet, mAtlasMint, mAtlasATAWallet, mFuelATAWallet, 200, rando, mFuelMint, 200)
 
 // submit new trades created by rando wallet
-await createTrade(connection, rando, mPolisMint, mPolisATARando, mFoodATARando, 300, wallet, mFoodMint, 300)
-await createTrade(connection, rando, mPolisMint, mPolisATARando, mFuelATARando, 400, wallet, mFuelMint, 400)
+await createTrade(connection, rando, mFoodMint, mFoodATARando, mAtlasATARando, 300, wallet, mAtlasMint, 300)
+// await createTrade(connection, rando, mPolisMint, mPolisATARando, mFuelATARando, 400, wallet, mFuelMint, 400)
 
 console.log('Trades created.')
 
@@ -94,7 +94,6 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
     [Buffer.from(partnerHash.substring(0, 32))],
     new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
   )
-  console.log('PDAs created...')
 
   // Set up for transaction creation
   const tempAccount = web3.Keypair.generate()
@@ -177,8 +176,6 @@ async function createTrade(connection, user, userAsset, userAssetATA, userReceiv
     token.AuthorityType.AccountOwner,
     escrowPDA
   )
-
-  console.log('instructions created...')
 
   try {
     tx.add(tempAccountIx, tempTAIx, transferIx, createEscrowIx, changeOwnerIx)

@@ -14,7 +14,7 @@ export class Escrow {
   partner_asset
   partner_asset_amount
 
-  constructor(partner, partner_asset_amount) {
+  constructor(partner, partner_asset_amount,) {
     this.partner = partner
     this.partner_asset_amount = partner_asset_amount
   }
@@ -23,14 +23,26 @@ export class Escrow {
   createEscrowInstructionLayout = borsh.struct([
     borsh.u8('variant'),
     borsh.str('partner'),
-    borsh.u64('partner_asset_amount')
+    borsh.u64('partner_asset_amount'),
   ])
 
 
   serialize() {
     const buffer = Buffer.alloc(1000)
-    this.createEscrowInstructionLayout.encode({ variant: 0, ...this }, buffer)
+    this.createEscrowInstructionLayout.encode({ variant: 0, ...this, }, buffer)
     return buffer.subarray(0, this.createEscrowInstructionLayout.getSpan(buffer))
+  }
+
+  cancelEscrowInstructionLayout = borsh.struct([
+    borsh.u8('variant'),
+    borsh.str('hash'),
+    borsh.bool('cancel_by_creator')
+  ])
+
+  serializeCancel(cancel_by_creator = false) {
+    const buffer = Buffer.alloc(100)
+    this.cancelEscrowInstructionLayout.encode({ variant: 1, hash: this.hash, cancel_by_creator }, buffer)
+    return buffer.subarray(0, this.cancelEscrowInstructionLayout.getSpan(buffer))
   }
 
   static escrowAccountSchema = borsh.struct([

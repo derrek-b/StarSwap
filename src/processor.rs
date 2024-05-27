@@ -1,16 +1,7 @@
 use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    borsh1::try_from_slice_unchecked,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke_signed,
-    program_error::ProgramError,
-    program_pack::{IsInitialized, Pack},
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    account_info::{next_account_info, AccountInfo}, borsh1::try_from_slice_unchecked, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, program_pack::{IsInitialized, Pack}, pubkey::Pubkey, system_instruction, system_program, sysvar::{rent::Rent, Sysvar}
 };
-use spl_token::state::Account;
+use spl_token::{state::Account, instruction::{transfer, close_account}};
 use std::{convert::TryInto, str::FromStr};
 use borsh::BorshSerialize;
 use sha2::{Sha256, Digest};
@@ -28,13 +19,24 @@ pub fn process_instruction(
     match instructions {
         EscrowInstructions::CreateEscrow {
             partner,
-            partner_asset_amount
+            partner_asset_amount,
         } => {
             create_escrow(
                 program_id,
                 accounts,
                 partner,
                 partner_asset_amount,
+            )
+        },
+        EscrowInstructions::CancelEscrow {
+            hash,
+            cancel_by_creator,
+        } => {
+            cancel_escrow(
+                program_id,
+                accounts,
+                hash,
+                cancel_by_creator,
             )
         }
     }
@@ -223,6 +225,175 @@ fn create_escrow(
 
     // Commit new PDA data
     partner_data.serialize(&mut &mut partner_pda.data.borrow_mut()[..])?;
+
+    Ok(())
+}
+
+fn cancel_escrow(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    hash: String,
+    cancel_by_creator: bool,
+) -> ProgramResult {
+    // [x] Close temp token account holding trade creator's assets
+    // [ ] Close PDA containing partner data
+    // [ ] Close PDA containing trade data
+    msg!("hash: {}", hash);
+
+    let accounts_info_iter = &mut accounts.iter();
+    let signer = next_account_info(accounts_info_iter)?;
+
+    // Verify trade first account is the signer
+    if !signer.is_signer {
+        msg!("Signer error");
+        return Err(ProgramError::MissingRequiredSignature)
+    }
+
+    // Get and verify escrow account
+    let escrow_account = next_account_info(accounts_info_iter)?;
+    let escrow_data = try_from_slice_unchecked::<EscrowAccountState>(&escrow_account.data.borrow()).unwrap();
+
+    if escrow_data.hash != hash {
+        msg!("Hash data does not match escrow account data");
+        return Err(TradeError::InvalidAccount.into())
+    }
+
+    // Verify signer is trade creator or partner
+    if signer.key.to_string() != escrow_data.creator && signer.key.to_string() != escrow_data.partner {
+        msg!("Signer error (creator or partner must be signer)");
+        return Err(ProgramError::MissingRequiredSignature)
+    }
+
+    // Get and verify temp token account holding creator's assets
+    let creator_asset_account = next_account_info(accounts_info_iter)?;
+    let creator_asset_data = creator_asset_account.data.borrow();
+    let creator_asset_info = Account::unpack(&creator_asset_data)?;
+
+    if creator_asset_info.owner != *escrow_account.key {
+        msg!("Temp asset account not owned by escrow PDA");
+        return Err(TradeError::InvalidAccount.into())
+    }
+    drop(creator_asset_data);
+
+    // Get and verify partner pda data
+    let partner_account = next_account_info(accounts_info_iter)?;
+    let partner_data = try_from_slice_unchecked::<PartnerAccountState>(&partner_account.data.borrow()).unwrap();
+
+    if partner_data.hash != hash {
+        msg!("Hash data does not match partner account data");
+        return Err(TradeError::InvalidAccount.into())
+    }
+
+    if escrow_data.partner != partner_data.pubkey {
+        msg!("Escrow and partner PDAs don't match");
+        return Err(TradeError::InvalidAccount.into())
+    }
+
+    // Get creator's ATA & token program accounts
+    let creator_ata = next_account_info(accounts_info_iter)?;
+    let creator_ata_data = creator_ata.data.borrow();
+    let creator_ata_info = Account::unpack(&creator_ata_data)?;
+
+    let token_program = next_account_info(accounts_info_iter)?;
+
+    // Get escrow account bump and verify escrow account PDAs match
+    let (_escrow_pda, escrow_bump) = Pubkey::find_program_address(
+        &[hash[..32].as_bytes().as_ref()],
+        program_id
+    );
+
+    if *escrow_account.key != _escrow_pda {
+        msg!("Creator asset PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
+
+    // Verify creator_ata belongs to creator stored in escrow account
+    if escrow_data.creator != creator_ata_info.owner.to_string() {
+        msg!("Creator asset token accounts don't match");
+        return Err(TradeError::InvalidAccount.into())
+    }
+    drop(creator_ata_data);
+
+    // Transfer creator assets back to creator
+    let transfer_ix = transfer(
+        &spl_token::ID,
+        creator_asset_account.clone().key, //borrowed on 270
+        creator_ata.clone().key, //borrowed on 298
+        escrow_account.clone().key, //good to go
+        &[escrow_account.clone().key], //gtg
+        creator_asset_info.amount
+    )?;
+
+    invoke_signed(
+        &transfer_ix,
+        &[creator_asset_account.clone(), creator_ata.clone(), escrow_account.clone(), token_program.clone()],
+        &[&[hash[..32].as_bytes().as_ref(), &[escrow_bump]]]
+    )?;
+
+    let creator_account: &AccountInfo<'_>;
+    if cancel_by_creator {
+        creator_account = &signer;
+    } else {
+        creator_account = next_account_info(accounts_info_iter)?;
+    }
+
+    // Close temp token account holding creator's assets
+    let close_ix = close_account(
+        &spl_token::ID,
+        &creator_asset_account.key,
+        &creator_account.key,
+        &escrow_account.key,
+        &[&escrow_account.key]
+    )?;
+
+    invoke_signed(
+        &close_ix,
+        &[creator_asset_account.clone(), creator_account.clone(), escrow_account.clone(), token_program.clone()],
+        &[&[hash[..32].as_bytes().as_ref(), &[escrow_bump]]]
+    )?;
+    msg!("Checkpoint 1.");
+
+    // Get partner PDA and verify account
+    let mut hasher = Sha256::new();
+    let mut input = hash.clone();
+    input.push_str(&escrow_data.partner);
+    hasher.update(input);
+    let partner_hash: String = format!("{:x}", hasher.finalize());
+
+    let (_partner_pda, partner_bump) = Pubkey::find_program_address(
+        &[partner_hash[..32].as_bytes().as_ref()],
+        program_id
+    );
+
+    if *partner_account.key != _partner_pda {
+        msg!("Partner PDAs do not match");
+        return Err(TradeError::InvalidPDA.into())
+    }
+    msg!("Checkpoint 2.");
+
+    // Transfer partner PDA lamports back to trade's creator
+    let mut creator_lamports = creator_account.lamports();
+    **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(partner_account.lamports()).unwrap();
+    **partner_account.lamports.borrow_mut() = 0;
+    msg!("Checkpoint 3.");
+
+    // Zero out parter PDA data
+    let mut parter_data = partner_account.data.borrow_mut();
+    parter_data.fill(0);
+    msg!("Checkpoint 4.");
+
+    // Transfer escrow PDA lamports back to trade's creator
+    creator_lamports = creator_account.lamports();
+    **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(escrow_account.lamports()).unwrap();
+    **escrow_account.lamports.borrow_mut() = 0;
+    msg!("Checkpoint 3.");
+
+    // Zero out escrow PDA data
+    let mut escrow_data = escrow_account.data.borrow_mut();
+    escrow_data.fill(0);
+    msg!("Checkpoint 4.");
+
+    // let system_program = next_account_info(accounts_info_iter)?;
 
     Ok(())
 }

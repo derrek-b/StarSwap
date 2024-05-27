@@ -2,9 +2,11 @@
 
 // Dependencies
 import * as web3 from '@solana/web3.js'
+import * as token from '@solana/spl-token'
 import { useState, useEffect } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import BN from 'bn.js'
+import { createHash } from 'crypto'
 
 // Components
 import Table from 'react-bootstrap/Table'
@@ -42,10 +44,12 @@ const ProposedSwaps = () => {
           trade.creator = escrow.creator.slice(0, 4) + '...' + escrow.creator.slice(-4)
           trade.partner_asset = escrow.partner_asset
           trade.partner_asset_amount = escrow.partner_asset_amount.toString()
+          trade.sending_asset_account = escrow.sending_asset_account
 
           const bytes_info = await connection.connection.getParsedAccountInfo(new web3.PublicKey(escrow.sending_asset_account))
           trade.user_asset = bytes_info.value.data.parsed.info.mint
           trade.user_asset_amount = bytes_info.value.data.parsed.info.tokenAmount.uiAmount
+          console.log('prop trade', trade)
           setProposedTrades(trades)
           setIsLoading(false)
         })
@@ -56,11 +60,16 @@ const ProposedSwaps = () => {
     console.log(`Button clicked for trade #${proposedTrades[index].index}`)
   }
 
+  const cancelTrade = async (index) => {
+    const trade = proposedTrades[index]
+    console.log(`Canceling trade ${trade.hash}`)
+  }
+
   useEffect(() => {
     if (isLoading) {
       getProposedTrades()
     }
-  }, [isLoading, proposedTrades])
+  }, [isLoading])
 
   return (
     <div>
