@@ -39,7 +39,7 @@ export class Escrow {
     borsh.bool('cancel_by_creator')
   ])
 
-  serializeCancel(cancel_by_creator = false) {
+  serializeCancel(cancel_by_creator) {
     const buffer = Buffer.alloc(100)
     this.cancelEscrowInstructionLayout.encode({ variant: 1, hash: this.hash, cancel_by_creator }, buffer)
     return buffer.subarray(0, this.cancelEscrowInstructionLayout.getSpan(buffer))

@@ -107,11 +107,6 @@ const MySwaps = () => {
           isSigner: false,
           isWritable: false,
         },
-        {
-          pubkey: web3.SystemProgram.programId,
-          isSigner: false,
-          isWritable: false,
-        },
       ],
       data: buffer,
       programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID)
@@ -120,7 +115,7 @@ const MySwaps = () => {
     tx.add(ix)
 
     try {
-      console.log('sending transactions...')
+      console.log('sending transaction...')
       const txSig = await web3.sendAndConfirmTransaction(connection.connection, tx, [keypair])
       console.log('Transactions send: ', txSig)
     } catch(e) {

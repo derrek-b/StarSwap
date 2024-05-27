@@ -235,9 +235,6 @@ fn cancel_escrow(
     hash: String,
     cancel_by_creator: bool,
 ) -> ProgramResult {
-    // [x] Close temp token account holding trade creator's assets
-    // [ ] Close PDA containing partner data
-    // [ ] Close PDA containing trade data
     msg!("hash: {}", hash);
 
     let accounts_info_iter = &mut accounts.iter();
@@ -317,10 +314,10 @@ fn cancel_escrow(
     // Transfer creator assets back to creator
     let transfer_ix = transfer(
         &spl_token::ID,
-        creator_asset_account.clone().key, //borrowed on 270
-        creator_ata.clone().key, //borrowed on 298
-        escrow_account.clone().key, //good to go
-        &[escrow_account.clone().key], //gtg
+        creator_asset_account.clone().key,
+        creator_ata.clone().key,
+        escrow_account.clone().key,
+        &[escrow_account.clone().key],
         creator_asset_info.amount
     )?;
 
@@ -351,7 +348,6 @@ fn cancel_escrow(
         &[creator_asset_account.clone(), creator_account.clone(), escrow_account.clone(), token_program.clone()],
         &[&[hash[..32].as_bytes().as_ref(), &[escrow_bump]]]
     )?;
-    msg!("Checkpoint 1.");
 
     // Get partner PDA and verify account
     let mut hasher = Sha256::new();
@@ -369,31 +365,24 @@ fn cancel_escrow(
         msg!("Partner PDAs do not match");
         return Err(TradeError::InvalidPDA.into())
     }
-    msg!("Checkpoint 2.");
 
     // Transfer partner PDA lamports back to trade's creator
     let mut creator_lamports = creator_account.lamports();
     **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(partner_account.lamports()).unwrap();
     **partner_account.lamports.borrow_mut() = 0;
-    msg!("Checkpoint 3.");
 
     // Zero out parter PDA data
     let mut parter_data = partner_account.data.borrow_mut();
     parter_data.fill(0);
-    msg!("Checkpoint 4.");
 
     // Transfer escrow PDA lamports back to trade's creator
     creator_lamports = creator_account.lamports();
     **creator_account.lamports.borrow_mut() = creator_lamports.checked_add(escrow_account.lamports()).unwrap();
     **escrow_account.lamports.borrow_mut() = 0;
-    msg!("Checkpoint 3.");
 
     // Zero out escrow PDA data
     let mut escrow_data = escrow_account.data.borrow_mut();
     escrow_data.fill(0);
-    msg!("Checkpoint 4.");
-
-    // let system_program = next_account_info(accounts_info_iter)?;
 
     Ok(())
 }

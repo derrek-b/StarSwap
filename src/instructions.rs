@@ -19,10 +19,9 @@ pub enum EscrowInstructions {
     // 3 [writable] token account containing creator's asset (temp account transferred to PDA's ownership)
     // 4 [writable] program PDA that stores partner data
     // 5 [writable] creator's ATA that escrowed assets will be returned to
-    // 6 [writable] creator's native account to return rent fees from closed temp token account and PDAs
+    // 6 [] token program
+    // 7 [writable] creator's native account to return rent fees from closed temp token account and PDAs
     //   (only included if signer of cancel instruction is the trade partner and not the creator)
-    // 7 [] token program
-    // 8 [] system program
     CancelEscrow {
         hash: String,
         cancel_by_creator: bool,
