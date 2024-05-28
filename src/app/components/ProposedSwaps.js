@@ -55,13 +55,112 @@ const ProposedSwaps = () => {
       })
   }
 
-  const acceptTrade = (index) => {
-    console.log(`Button clicked for trade #${proposedTrades[index].index}`)
+  const acceptTrade = async (index) => {
+    const trade = proposedTrades[index]
+    console.log(`Accepting trade ${trade.hash}`)
+
+    const buffer = trade.serializeAccept()
+
+    const tx = new web3.Transaction()
+
+    // Get escrow PDA account
+    let escrowHash = trade.hash
+    const [escrowPDA] = await web3.PublicKey.findProgramAddressSync(
+      [Buffer.from(escrowHash.substring(0, 32))],
+      new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
+    )
+
+    // Get partner PDA account
+    const partnerHash = createHash('sha256').update(escrowHash + trade.partner).digest('hex')
+    const [partnerPda] = await web3.PublicKey.findProgramAddressSync(
+      [Buffer.from(partnerHash.substring(0, 32))],
+      new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID),
+    )
+
+    // Get creator's ATA for receiving asset from partner
+    const creatorATA = await token.getAssociatedTokenAddressSync(
+      new web3.PublicKey(trade.partner_asset),
+      new web3.PublicKey(trade.creator),
+    )
+
+    // Get partner's ATA for asset being sent to creator
+    const partnerSendingATA = await token.getAssociatedTokenAddressSync(
+      new web3.PublicKey(trade.partner_asset),
+      new web3.PublicKey(trade.partner),
+    )
+
+    // Get partner's ATA for asset being sent to creator
+    const partnerReceivingATA = await token.getAssociatedTokenAddressSync(
+      new web3.PublicKey(trade.user_asset),
+      new web3.PublicKey(trade.partner),
+    )
+
+    const ix = new web3.TransactionInstruction({
+      keys: [
+        {
+          pubkey: publicKey, //1
+          isSigner: true,
+          isWritable: false
+        },
+        {
+          pubkey: escrowPDA, //2
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: new web3.PublicKey(trade.sending_asset_account), //3
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: partnerPda, //4
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: new web3.PublicKey(creatorATA), //5
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: new web3.PublicKey(partnerSendingATA), //6
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: new web3.PublicKey(partnerReceivingATA), //7
+          isSigner: false,
+          isWritable: true
+        },
+        {
+          pubkey: token.TOKEN_PROGRAM_ID, //8
+          isSigner: false,
+          isWritable: false,
+        },
+        {
+          pubkey: new web3.PublicKey(trade.creator), //9
+          isSigner: false,
+          isWritable: true
+        },
+      ],
+      data: buffer,
+      programId: new web3.PublicKey(process.env.NEXT_PUBLIC_LOCALHOST_PROGRAM_ID)
+    })
+
+    tx.add(ix)
+
+    try {
+      console.log('sending transaction...')
+      const txSig = await web3.sendAndConfirmTransaction(connection.connection, tx, [keypair])
+      console.log('Transactions send: ', txSig)
+    } catch(e) {
+      console.log(JSON.stringify(e))
+      alert(JSON.stringify(e))
+    }
   }
 
   const cancelTrade = async (index) => {
     const trade = proposedTrades[index]
-    console.log(trade)
     console.log(`Canceling trade ${trade.hash}`)
 
     const buffer = trade.serializeCancel(false)

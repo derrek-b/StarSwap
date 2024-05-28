@@ -12,6 +12,7 @@ console.log('Starting script...')
 
 const rando = web3.Keypair.generate()
 const randoKey = rando.publicKey.toBase58()
+console.log('randoKey:', randoKey)
 
 const wallet = getKeypairFromEnvironment('NEXT_PUBLIC_SECRET_KEY_ONLY_PHANTOM_ON_CLI')
 const walletKey = wallet.publicKey.toBase58()

@@ -45,6 +45,17 @@ export class Escrow {
     return buffer.subarray(0, this.cancelEscrowInstructionLayout.getSpan(buffer))
   }
 
+  completeEscrowInstructionLayout = borsh.struct([
+    borsh.u8('variant'),
+    borsh.str('hash'),
+  ])
+
+  serializeAccept() {
+    const buffer = Buffer.alloc(100)
+    this.completeEscrowInstructionLayout.encode({ variant: 2, hash: this.hash }, buffer)
+    return buffer.subarray(0, this.completeEscrowInstructionLayout.getSpan(buffer))
+  }
+
   static escrowAccountSchema = borsh.struct([
     borsh.bool('is_initialized'),
     borsh.str('hash'),
